@@ -37,3 +37,19 @@ export function extractGistId(input) {
   const parts = cleaned.split('/');
   return parts[parts.length - 1];
 }
+
+/** Creates a new secret Gist with the given data and returns { gistId, gistUrl, filename }. */
+export async function createGist(filename, data, token) {
+  const res = await fetch(GIST_API, {
+    method: 'POST',
+    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      description: 'Pen Spinning Skill Tree',
+      public: false,
+      files: { [filename]: { content: JSON.stringify(data, null, 2) } },
+    }),
+  });
+  if (!res.ok) throw new Error(`GitHub API error ${res.status}: ${res.statusText}`);
+  const gist = await res.json();
+  return { gistId: gist.id, gistUrl: gist.html_url, filename };
+}
