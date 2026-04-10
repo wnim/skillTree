@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MarkerType } from '@xyflow/react';
 import { defaultData, DEFAULT_EDGE_TYPE, DATA_KEY } from '../data/defaultData';
 import { buildLayout } from '../utils/layout';
+import { fetchGistData, saveGistData } from '../utils/gist';
 
 function loadData() {
   try {
@@ -44,12 +45,48 @@ function toReactFlowEdges(edges, edgeStyles) {
   });
 }
 
-export function useSkillTree() {
+export function useSkillTree(gistConfig = null) {
   const [data, setData] = useState(loadData);
+  const [syncStatus, setSyncStatus] = useState(gistConfig?.gistId ? 'loading' : 'idle');
+  const saveTimeoutRef = useRef(null);
+  const isFirstRender = useRef(true);
 
+  // (1) Always mirror to localStorage for offline fallback
   useEffect(() => {
     localStorage.setItem(DATA_KEY, JSON.stringify(data));
   }, [data]);
+
+  // (2) Load from Gist on mount (if already configured)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!gistConfig?.gistId) return;
+    fetchGistData(gistConfig.gistId, gistConfig.token)
+      .then(({ data: gistData }) => {
+        setData(gistData);
+        setSyncStatus('idle');
+      })
+      .catch(() => setSyncStatus('error'));
+  }, []);
+
+  // (3) Debounced auto-save to Gist on every data change (skip initial render)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    if (!gistConfig?.gistId) return;
+
+    clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      setSyncStatus('saving');
+      saveGistData(gistConfig.gistId, gistConfig.filename, data, gistConfig.token)
+        .then(() => setSyncStatus('idle'))
+        .catch(() => setSyncStatus('error'));
+    }, 2000);
+    return () => clearTimeout(saveTimeoutRef.current);
+  }, [data, gistConfig]);
+
   const [selectedId, setSelectedId] = useState(null);
   const [editingId, setEditingId] = useState(null);
 
@@ -225,6 +262,7 @@ export function useSkillTree() {
 
   return {
     data,
+    syncStatus,
     selectedId,
     setSelectedId,
     editingId,

@@ -1,6 +1,7 @@
 export const DEFAULT_EDGE_TYPE = 'prerequisite';
 export const VIEWPORT_KEY = 'psskill_viewport';
 export const DATA_KEY = 'psskill_data';
+export const GIST_CONFIG_KEY = 'psskill_gist_config';
 
 export const defaultData = {
   nodes: [
