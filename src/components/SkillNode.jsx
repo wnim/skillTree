@@ -2,19 +2,19 @@ import { Handle } from '@xyflow/react';
 import { Paper, Text, Progress } from '@mantine/core';
 import { scoreColor } from '../utils/score';
 
-export function SkillNode({ data }) {
-  const { score, label, isSelected, isEditing, tagColor } = data;
+export function SkillNode({ data, selected }) {
+  const { score, label, isEditing, tagColor } = data;
   const percent = score == null ? 0 : (score / 10) * 100;
 
   const borderColor = isEditing
     ? 'var(--mantine-color-blue-5)'
-    : isSelected
+    : selected
     ? 'var(--mantine-color-blue-8)'
     : tagColor || 'var(--mantine-color-dark-4)';
 
   const boxShadow = isEditing
     ? '0 0 0 3px var(--mantine-color-blue-5), 0 0 18px 2px rgba(91, 156, 246, 0.35)'
-    : isSelected
+    : selected
     ? '0 0 0 2px var(--mantine-color-blue-8)'
     : undefined;
 
@@ -29,7 +29,7 @@ export function SkillNode({ data }) {
         flexDirection: 'column',
         gap: 3,
       }}
-      bg={isSelected || isEditing ? 'dark.7' : 'dark.8'}
+      bg={selected || isEditing ? 'dark.7' : 'dark.8'}
       radius="md"
     >
       <Handle type="target" position="top" className="handle" />

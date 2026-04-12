@@ -15,7 +15,7 @@ export function Toolbar({ onAddNode, onFitView, onAutoLayout, onExport, onImport
         {statusLabel && <Text size="sm" c={statusLabel.color}>{statusLabel.text}</Text>}
         <Button onClick={onAddNode}>Add Node</Button>
         <Button variant="default" onClick={onFitView}>Fit view</Button>
-        <Button variant="default" onClick={onAutoLayout}>Auto-layout</Button>
+        <Button variant="default" onClick={onAutoLayout}>Tidy</Button>
         <Button variant="default" onClick={onExport}>Export JSON</Button>
         <Button variant="default" onClick={onImport}>Import JSON</Button>
         <Button variant="default" onClick={onGistSettings}>Gist</Button>

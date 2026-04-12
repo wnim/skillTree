@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MarkerType } from '@xyflow/react';
 import { defaultData, DEFAULT_EDGE_TYPE, DATA_KEY } from '../data/defaultData';
-import { buildLayout } from '../utils/layout';
+import { tidyLayout } from '../utils/layout';
 import { fetchGistData, saveGistData } from '../utils/gist';
 
 function loadData() {
@@ -14,19 +14,20 @@ function loadData() {
   return defaultData;
 }
 
-function toReactFlowNodes(nodes, tagStyles, selectedId, editingId) {
-  return nodes.map((node) => ({
-    id: node.id,
-    type: 'skillNode',
-    position: node.position,
-    draggable: node.id !== editingId,
-    data: {
-      ...node,
-      tagColor: node.tags?.[0] ? tagStyles[node.tags[0]]?.color ?? '#555' : '#555',
-      isSelected: node.id === selectedId,
-      isEditing: node.id === editingId,
-    },
-  }));
+function toReactFlowNodes(nodes, tagStyles, editingId) {
+  return nodes.map((node) => {
+    return {
+      id: node.id,
+      type: 'skillNode',
+      position: node.position,
+      draggable: node.id !== editingId,
+      data: {
+        ...node,
+        tagColor: node.tags?.[0] ? tagStyles[node.tags[0]]?.color ?? '#555' : '#555',
+        isEditing: node.id === editingId,
+      },
+    };
+  });
 }
 
 function toReactFlowEdges(edges, edgeStyles) {
@@ -93,6 +94,7 @@ export function useSkillTree(gistConfig = null) {
 
   const [selectedId, setSelectedId] = useState(null);
   const [editingId, setEditingId] = useState(null);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
 
   const updateData = useCallback((partial) => {
     setData((prev) => {
@@ -108,8 +110,8 @@ export function useSkillTree(gistConfig = null) {
   );
 
   const flowNodes = useMemo(
-    () => toReactFlowNodes(data.nodes, data.tag_styles, selectedId, editingId),
-    [data.nodes, data.tag_styles, selectedId, editingId],
+    () => toReactFlowNodes(data.nodes, data.tag_styles, editingId),
+    [data.nodes, data.tag_styles, editingId],
   );
 
   const flowEdges = useMemo(
@@ -181,6 +183,21 @@ export function useSkillTree(gistConfig = null) {
         return {
           ...prev,
           nodes: prev.nodes.map((n) => (n.id === nodeId ? { ...n, position } : n)),
+        };
+      });
+    },
+    [],
+  );
+
+  const updateNodePositions = useCallback(
+    (positionUpdates) => {
+      setData((prev) => {
+        pastRef.current = [...pastRef.current.slice(-(MAX_HISTORY - 1)), prev];
+        futureRef.current = [];
+        const updateMap = new Map(positionUpdates.map((u) => [u.id, u.position]));
+        return {
+          ...prev,
+          nodes: prev.nodes.map((n) => (updateMap.has(n.id) ? { ...n, position: updateMap.get(n.id) } : n)),
         };
       });
     },
@@ -286,8 +303,8 @@ export function useSkillTree(gistConfig = null) {
   // --- Layout ---
 
   const autoLayout = useCallback(() => {
-    updateData({ nodes: buildLayout(data.nodes, data.edges) });
-  }, [data.nodes, data.edges, updateData]);
+    updateData({ nodes: tidyLayout(data.nodes) });
+  }, [data.nodes, updateData]);
 
   // --- Undo / Redo ---
 
@@ -332,6 +349,8 @@ export function useSkillTree(gistConfig = null) {
     syncStatus,
     selectedId,
     setSelectedId,
+    selectedIds,
+    setSelectedIds,
     editingId,
     setEditingId,
     selectedNode,
@@ -346,6 +365,7 @@ export function useSkillTree(gistConfig = null) {
     updateNode,
     updateNodeById,
     updateNodePosition,
+    updateNodePositions,
     addEdge,
     updateEdgeType,
     addTagStyle,

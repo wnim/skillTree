@@ -4,6 +4,7 @@ import {
   Controls,
   ReactFlow,
   ReactFlowProvider,
+  SelectionMode,
   useNodesState,
   useEdgesState,
 } from '@xyflow/react';
@@ -13,7 +14,9 @@ import { ContextMenu } from './ContextMenu';
 import { loadViewport, saveViewport } from '../utils/viewport';
 
 export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTree, onOpenInspector }, ref) {
-  const { addNode, deleteNode, addEdge, updateNodePosition, updateNodeById, setSelectedId, setEditingId } = skillTree;
+  const { addNode, deleteNode, addEdge, updateNodePosition, updateNodePositions, updateNodeById,
+    setSelectedId, setSelectedIds, setEditingId,
+    selectedId, selectedIds } = skillTree;
   const isEditing = skillTree.editingId != null;
 
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -21,6 +24,10 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
   const [lastPaneClick, setLastPaneClick] = useState({ x: 200, y: 120 });
+  const [isPanMode, setIsPanMode] = useState(false);
+  const isShiftHeld = useRef(false);
+  const selectedIdRef = useRef(selectedId);
+  const selectedIdsRef = useRef(selectedIds);
   const savedViewport = useRef(loadViewport());
   const containerRef = useRef(null);
   const reactFlowRef = useRef(null);
@@ -49,6 +56,32 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
     setEdges(flowEdges);
   }, [enhancedNodes, flowEdges, setNodes, setEdges]);
 
+  // Keep refs in sync so handleSelectionChange always sees fresh values
+  useEffect(() => { selectedIdRef.current = selectedId; }, [selectedId]);
+  useEffect(() => { selectedIdsRef.current = selectedIds; }, [selectedIds]);
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key === 'Shift') { isShiftHeld.current = true; return; }
+      if (e.code !== 'Space' || e.repeat) return;
+      const tag = document.activeElement?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      e.preventDefault();
+      setIsPanMode(true);
+    };
+    const onKeyUp = (e) => {
+      if (e.key === 'Shift') { isShiftHeld.current = false; return; }
+      if (e.code !== 'Space') return;
+      setIsPanMode(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+    };
+  }, []);
+
   const handleInit = useCallback((flow) => {
     setReactFlowInstance(flow);
     reactFlowRef.current = flow;
@@ -70,9 +103,41 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
 
   const handlePaneClick = useCallback(() => {
     setSelectedId(null);
+    setSelectedIds(new Set());
     setEditingId(null);
     setContextMenu(null);
-  }, [setSelectedId, setEditingId]);
+  }, [setSelectedId, setSelectedIds, setEditingId]);
+
+  const handleSelectionChange = useCallback(
+    ({ nodes: selectedNodes }) => {
+      const incomingIds = new Set(selectedNodes.map((n) => n.id));
+      const currentSingle = selectedIdRef.current;
+      const currentMulti = selectedIdsRef.current;
+      const currentAll = new Set([...(currentSingle ? [currentSingle] : []), ...currentMulti]);
+
+      let nextAll;
+      if (isShiftHeld.current) {
+        if (incomingIds.size === 0) return; // ignore empty during shift-drag
+        nextAll = new Set([...currentAll, ...incomingIds]);
+      } else {
+        nextAll = incomingIds;
+      }
+
+      // Content equality check — avoid triggering re-renders for identical selections
+      if (nextAll.size === currentAll.size && [...nextAll].every((id) => currentAll.has(id))) return;
+
+      if (nextAll.size === 0) {
+        setSelectedIds(new Set());
+      } else if (nextAll.size === 1) {
+        setSelectedId([...nextAll][0]);
+        setSelectedIds(new Set());
+      } else {
+        setSelectedId(null);
+        setSelectedIds(nextAll);
+      }
+    },
+    [setSelectedId, setSelectedIds],
+  );
 
   const handleCanvasDoubleClick = useCallback((event) => {
     if (!event.target.classList.contains('react-flow__pane')) return;
@@ -100,11 +165,14 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
   const handleNodesChange = useCallback(
     (changes) => {
       onNodesChange(changes);
-      changes
-        .filter((c) => c.type === 'position' && c.position && !c.dragging)
-        .forEach((c) => updateNodePosition(c.id, c.position));
+      const settled = changes.filter((c) => c.type === 'position' && c.position && !c.dragging);
+      if (settled.length === 1) {
+        updateNodePosition(settled[0].id, settled[0].position);
+      } else if (settled.length > 1) {
+        updateNodePositions(settled.map((c) => ({ id: c.id, position: c.position })));
+      }
     },
-    [onNodesChange, updateNodePosition],
+    [onNodesChange, updateNodePosition, updateNodePositions],
   );
 
   const handleNodeContextMenu = useCallback((event, node) => {
@@ -163,15 +231,18 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
           onConnect={handleConnect}
           onNodesChange={handleNodesChange}
           onEdgesChange={onEdgesChange}
+          onSelectionChange={handleSelectionChange}
           onNodeContextMenu={handleNodeContextMenu}
           onPaneContextMenu={handlePaneContextMenu}
-          panOnDrag={!isEditing}
+          panOnDrag={isPanMode && !isEditing}
           panOnScroll={!isEditing}
           panOnScrollMode="free"
           zoomOnScroll={false}
           zoomActivationKeyCode="Control"
           zoomOnPinch={!isEditing}
-          selectionOnDrag={false}
+          selectionOnDrag={!isPanMode && !isEditing}
+          selectionMode={SelectionMode.Partial}
+          multiSelectionKeyCode="Shift"
           zoomOnDoubleClick={false}
           fitView={!savedViewport.current}
           proOptions={{ hideAttribution: true }}
