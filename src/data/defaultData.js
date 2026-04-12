@@ -14,8 +14,8 @@ export const defaultData = {
       position: { x: 100, y: 100 },
     },
     {
-      id: 'pen_spin_1_5',
-      label: 'Pen Spin 1.5',
+      id: 'thumb_spin_1_5',
+      label: 'Thumb Spin 1.5',
       score: null,
       tags: ['combo'],
       notes: '',
@@ -26,7 +26,7 @@ export const defaultData = {
     {
       id: 'e1',
       from: 'thumb_around',
-      to: 'pen_spin_1_5',
+      to: 'thumb_spin_1_5',
       type: 'prerequisite',
     },
   ],

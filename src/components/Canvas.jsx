@@ -8,11 +8,13 @@ import {
   useEdgesState,
 } from '@xyflow/react';
 import { SkillNode } from './SkillNode';
+import { EditableNode } from './EditableNode';
 import { ContextMenu } from './ContextMenu';
 import { loadViewport, saveViewport } from '../utils/viewport';
 
 export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTree, onOpenInspector }, ref) {
-  const { addNode, deleteNode, addEdge, updateNodePosition, setSelectedId, setEditingId } = skillTree;
+  const { addNode, deleteNode, addEdge, updateNodePosition, updateNodeById, setSelectedId, setEditingId } = skillTree;
+  const isEditing = skillTree.editingId != null;
 
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -23,13 +25,29 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
   const containerRef = useRef(null);
   const reactFlowRef = useRef(null);
 
-  const nodeTypes = useMemo(() => ({ skillNode: SkillNode }), []);
+  const nodeTypes = useMemo(() => ({ skillNode: SkillNode, editableNode: EditableNode }), []);
+
+  // Enhance editing nodes with the type switch and update callbacks
+  const enhancedNodes = useMemo(() => {
+    return flowNodes.map((n) => {
+      if (!n.data.isEditing) return n;
+      return {
+        ...n,
+        type: 'editableNode',
+        data: {
+          ...n.data,
+          onUpdate: updateNodeById,
+          onClose: () => setEditingId(null),
+        },
+      };
+    });
+  }, [flowNodes, updateNodeById, setEditingId]);
 
   // Sync flow state from parent data
   useEffect(() => {
-    setNodes(flowNodes);
+    setNodes(enhancedNodes);
     setEdges(flowEdges);
-  }, [flowNodes, flowEdges, setNodes, setEdges]);
+  }, [enhancedNodes, flowEdges, setNodes, setEdges]);
 
   const handleInit = useCallback((flow) => {
     setReactFlowInstance(flow);
@@ -39,22 +57,7 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
     }
   }, []);
 
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
 
-    const handleWheel = (event) => {
-      if (!reactFlowRef.current) return;
-      if (Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
-
-      event.preventDefault();
-      const { x, y, zoom } = reactFlowRef.current.getViewport();
-      reactFlowRef.current.setViewport({ x: x - event.deltaX, y, zoom });
-    };
-
-    el.addEventListener('wheel', handleWheel, { passive: false });
-    return () => el.removeEventListener('wheel', handleWheel);
-  }, []);
 
   const handleMoveEnd = useCallback((_event, viewport) => {
     saveViewport(viewport);
@@ -71,10 +74,18 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
     setContextMenu(null);
   }, [setSelectedId, setEditingId]);
 
+  const handleCanvasDoubleClick = useCallback((event) => {
+    if (!event.target.classList.contains('react-flow__pane')) return;
+    const position = projectToFlow({ x: event.clientX, y: event.clientY });
+    addNode(position);
+    onOpenInspector();
+  }, [addNode, onOpenInspector, projectToFlow]);
+
   const handleNodeClick = useCallback((_event, node) => {
     setSelectedId(node.id);
-    setEditingId(null);
-  }, [setSelectedId, setEditingId]);
+    // Don't exit editing if the user clicked inside the already-editing node
+    if (skillTree.editingId !== node.id) setEditingId(null);
+  }, [setSelectedId, setEditingId, skillTree.editingId]);
 
   const handleNodeDoubleClick = useCallback((_event, node) => {
     setSelectedId(node.id);
@@ -138,7 +149,7 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
   useImperativeHandle(ref, () => ({ fitView }), [fitView]);
 
   return (
-    <div ref={containerRef} style={{ position: 'relative', height: '100%' }}>
+    <div ref={containerRef} style={{ position: 'relative', height: '100%' }} onDoubleClick={handleCanvasDoubleClick}>
       <ReactFlowProvider>
         <ReactFlow
           nodes={nodes}
@@ -154,7 +165,12 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
           onEdgesChange={onEdgesChange}
           onNodeContextMenu={handleNodeContextMenu}
           onPaneContextMenu={handlePaneContextMenu}
-          panOnDrag
+          panOnDrag={!isEditing}
+          panOnScroll={!isEditing}
+          panOnScrollMode="free"
+          zoomOnScroll={false}
+          zoomActivationKeyCode="Control"
+          zoomOnPinch={!isEditing}
           selectionOnDrag={false}
           zoomOnDoubleClick={false}
           fitView={!savedViewport.current}

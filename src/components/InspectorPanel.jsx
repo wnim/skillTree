@@ -1,7 +1,14 @@
-import { Stack, TextInput, Textarea, Slider, Checkbox, Select, Text, Button, Group } from '@mantine/core';
+import { useState, useEffect } from 'react';
+import { Stack, TextInput, Textarea, Slider, Select, Text, Button, Group } from '@mantine/core';
 import { DEFAULT_EDGE_TYPE } from '../data/defaultData';
 
 export function InspectorPanel({ selectedNode, edges, edgeStyles, onUpdateNode, onUpdateEdgeType, onDeleteNode, readOnly }) {
+  const [tagsRaw, setTagsRaw] = useState('');
+
+  useEffect(() => {
+    setTagsRaw(selectedNode ? selectedNode.tags.join(', ') : '');
+  }, [selectedNode?.id]);
+
   if (!selectedNode) {
     return <Text c="dimmed">Select a node to inspect and edit its details here.</Text>;
   }
@@ -29,20 +36,13 @@ export function InspectorPanel({ selectedNode, edges, edgeStyles, onUpdateNode, 
           marks={[{ value: 0, label: '0' }, { value: 5, label: '5' }, { value: 10, label: '10' }]}
           mb="xs"
         />
-        <Checkbox
-          label="Not attempted"
-          checked={selectedNode.score == null}
-          onChange={(e) => onUpdateNode('score', e.currentTarget.checked ? null : 0)}
-          disabled={readOnly}
-        />
       </div>
 
       <TextInput
         label="Tags"
-        value={selectedNode.tags.join(', ')}
-        onChange={(e) =>
-          onUpdateNode('tags', e.currentTarget.value.split(',').map((t) => t.trim()).filter(Boolean))
-        }
+        value={tagsRaw}
+        onChange={(e) => setTagsRaw(e.currentTarget.value)}
+        onBlur={() => onUpdateNode('tags', tagsRaw.split(',').map((t) => t.trim()).filter(Boolean))}
         placeholder="comma-separated"
         readOnly={readOnly}
       />

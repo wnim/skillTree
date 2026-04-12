@@ -6,7 +6,7 @@ const SYNC_LABELS = {
   error: { text: 'Sync error — check Gist settings', color: 'red' },
 };
 
-export function Toolbar({ onAddNode, onFitView, onAutoLayout, onExport, onImport, syncStatus, onGistSettings }) {
+export function Toolbar({ onAddNode, onFitView, onAutoLayout, onExport, onImport, syncStatus, onGistSettings, onToggleSidebar, sidebarOpen }) {
   const statusLabel = SYNC_LABELS[syncStatus] ?? null;
   return (
     <Group justify="space-between" p="md" bg="dark.8" style={{ borderBottom: '1px solid var(--mantine-color-dark-5)' }}>
@@ -19,6 +19,7 @@ export function Toolbar({ onAddNode, onFitView, onAutoLayout, onExport, onImport
         <Button variant="default" onClick={onExport}>Export JSON</Button>
         <Button variant="default" onClick={onImport}>Import JSON</Button>
         <Button variant="default" onClick={onGistSettings}>Gist</Button>
+        <Button variant={sidebarOpen ? 'filled' : 'default'} onClick={onToggleSidebar}>Panel</Button>
       </Group>
     </Group>
   );

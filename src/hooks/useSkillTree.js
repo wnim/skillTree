@@ -19,7 +19,7 @@ function toReactFlowNodes(nodes, tagStyles, selectedId, editingId) {
     id: node.id,
     type: 'skillNode',
     position: node.position,
-    draggable: node.id === editingId,
+    draggable: node.id !== editingId,
     data: {
       ...node,
       tagColor: node.tags?.[0] ? tagStyles[node.tags[0]]?.color ?? '#555' : '#555',
@@ -36,7 +36,7 @@ function toReactFlowEdges(edges, edgeStyles) {
       id: edge.id,
       source: edge.from,
       target: edge.to,
-      markerEnd: { type: MarkerType.ArrowClosed, color: style.color },
+      markerEnd: { type: MarkerType.ArrowClosed, color: style.color, width: 20, height: 20 },
       style: {
         stroke: style.color,
         strokeDasharray: style.stroke === 'dashed' ? '6 6' : '0',
@@ -48,8 +48,12 @@ function toReactFlowEdges(edges, edgeStyles) {
 export function useSkillTree(gistConfig = null) {
   const [data, setData] = useState(loadData);
   const [syncStatus, setSyncStatus] = useState(gistConfig?.gistId ? 'loading' : 'idle');
+  const [clipboardNode, setClipboardNode] = useState(null);
   const saveTimeoutRef = useRef(null);
   const isFirstRender = useRef(true);
+  const pastRef = useRef([]);
+  const futureRef = useRef([]);
+  const MAX_HISTORY = 50;
 
   // (1) Always mirror to localStorage for offline fallback
   useEffect(() => {
@@ -91,7 +95,11 @@ export function useSkillTree(gistConfig = null) {
   const [editingId, setEditingId] = useState(null);
 
   const updateData = useCallback((partial) => {
-    setData((prev) => ({ ...prev, ...partial }));
+    setData((prev) => {
+      pastRef.current = [...pastRef.current.slice(-(MAX_HISTORY - 1)), prev];
+      futureRef.current = [];
+      return { ...prev, ...partial };
+    });
   }, []);
 
   const selectedNode = useMemo(
@@ -155,15 +163,52 @@ export function useSkillTree(gistConfig = null) {
     [data.nodes, data.tag_styles, selectedId, updateData],
   );
 
-  const updateNodePosition = useCallback(
-    (nodeId, position) => {
+  const updateNodeById = useCallback(
+    (nodeId, field, value) => {
       setData((prev) => ({
         ...prev,
-        nodes: prev.nodes.map((n) => (n.id === nodeId ? { ...n, position } : n)),
+        nodes: prev.nodes.map((n) => (n.id === nodeId ? { ...n, [field]: value } : n)),
       }));
     },
     [],
   );
+
+  const updateNodePosition = useCallback(
+    (nodeId, position) => {
+      setData((prev) => {
+        pastRef.current = [...pastRef.current.slice(-(MAX_HISTORY - 1)), prev];
+        futureRef.current = [];
+        return {
+          ...prev,
+          nodes: prev.nodes.map((n) => (n.id === nodeId ? { ...n, position } : n)),
+        };
+      });
+    },
+    [],
+  );
+
+  // --- Copy / Paste ---
+
+  const copyNode = useCallback(() => {
+    if (!selectedNode) return;
+    setClipboardNode(selectedNode);
+  }, [selectedNode]);
+
+  const pasteNode = useCallback(() => {
+    if (!clipboardNode) return;
+    const id = `node_${Date.now()}`;
+    const newNode = {
+      ...clipboardNode,
+      id,
+      position: {
+        x: clipboardNode.position.x + 40,
+        y: clipboardNode.position.y + 40,
+      },
+    };
+    updateData({ nodes: [...data.nodes, newNode] });
+    setSelectedId(id);
+    setClipboardNode(newNode);
+  }, [clipboardNode, data.nodes, updateData]);
 
   // --- Edge actions ---
 
@@ -244,6 +289,28 @@ export function useSkillTree(gistConfig = null) {
     updateData({ nodes: buildLayout(data.nodes, data.edges) });
   }, [data.nodes, data.edges, updateData]);
 
+  // --- Undo / Redo ---
+
+  const undo = useCallback(() => {
+    if (pastRef.current.length === 0) return;
+    setData((current) => {
+      const previous = pastRef.current[pastRef.current.length - 1];
+      pastRef.current = pastRef.current.slice(0, -1);
+      futureRef.current = [current, ...futureRef.current.slice(0, MAX_HISTORY - 1)];
+      return previous;
+    });
+  }, []);
+
+  const redo = useCallback(() => {
+    if (futureRef.current.length === 0) return;
+    setData((current) => {
+      const next = futureRef.current[0];
+      futureRef.current = futureRef.current.slice(1);
+      pastRef.current = [...pastRef.current.slice(-(MAX_HISTORY - 1)), current];
+      return next;
+    });
+  }, []);
+
   // --- Import / Export ---
 
   const importData = useCallback((parsed) => {
@@ -270,9 +337,14 @@ export function useSkillTree(gistConfig = null) {
     selectedNode,
     flowNodes,
     flowEdges,
+    undo,
+    redo,
+    copyNode,
+    pasteNode,
     addNode,
     deleteNode,
     updateNode,
+    updateNodeById,
     updateNodePosition,
     addEdge,
     updateEdgeType,
