@@ -21,8 +21,8 @@ export function SkillNode({ data, selected }) {
   return (
     <Paper
       p={6}
-      w={120}
       style={{
+        width: 180,
         border: `2px solid ${borderColor}`,
         boxShadow,
         display: 'flex',

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { MarkerType } from '@xyflow/react';
 import { defaultData, DEFAULT_EDGE_TYPE, DATA_KEY } from '../data/defaultData';
 import { tidyLayout } from '../utils/layout';
 import { fetchGistData, saveGistData } from '../utils/gist';
@@ -15,19 +14,17 @@ function loadData() {
 }
 
 function toReactFlowNodes(nodes, tagStyles, editingId) {
-  return nodes.map((node) => {
-    return {
-      id: node.id,
-      type: 'skillNode',
-      position: node.position,
-      draggable: node.id !== editingId,
-      data: {
-        ...node,
-        tagColor: node.tags?.[0] ? tagStyles[node.tags[0]]?.color ?? '#555' : '#555',
-        isEditing: node.id === editingId,
-      },
-    };
-  });
+  return nodes.map((node) => ({
+    id: node.id,
+    type: 'skillNode',
+    position: node.position,
+    draggable: node.id !== editingId,
+    data: {
+      ...node,
+      tagColor: node.tags?.[0] ? tagStyles[node.tags[0]]?.color ?? '#555' : '#555',
+      isEditing: node.id === editingId,
+    },
+  }));
 }
 
 function toReactFlowEdges(edges, edgeStyles) {
@@ -37,7 +34,8 @@ function toReactFlowEdges(edges, edgeStyles) {
       id: edge.id,
       source: edge.from,
       target: edge.to,
-      markerEnd: { type: MarkerType.ArrowClosed, color: style.color, width: 20, height: 20 },
+      type: 'customBezier',
+      interactionWidth: 20,
       style: {
         stroke: style.color,
         strokeDasharray: style.stroke === 'dashed' ? '6 6' : '0',
@@ -49,7 +47,7 @@ function toReactFlowEdges(edges, edgeStyles) {
 export function useSkillTree(gistConfig = null) {
   const [data, setData] = useState(loadData);
   const [syncStatus, setSyncStatus] = useState(gistConfig?.gistId ? 'loading' : 'idle');
-  const [clipboardNode, setClipboardNode] = useState(null);
+  const [clipboard, setClipboard] = useState({ nodes: [], edges: [] });
   const saveTimeoutRef = useRef(null);
   const isFirstRender = useRef(true);
   const pastRef = useRef([]);
@@ -88,7 +86,7 @@ export function useSkillTree(gistConfig = null) {
       saveGistData(gistConfig.gistId, gistConfig.filename, data, gistConfig.token)
         .then(() => setSyncStatus('idle'))
         .catch(() => setSyncStatus('error'));
-    }, 2000);
+    }, 60000);
     return () => clearTimeout(saveTimeoutRef.current);
   }, [data, gistConfig]);
 
@@ -207,25 +205,48 @@ export function useSkillTree(gistConfig = null) {
   // --- Copy / Paste ---
 
   const copyNode = useCallback(() => {
-    if (!selectedNode) return;
-    setClipboardNode(selectedNode);
-  }, [selectedNode]);
+    let idsToCopy;
+    if (selectedIds.size > 1) {
+      idsToCopy = selectedIds;
+    } else if (selectedNode) {
+      idsToCopy = new Set([selectedNode.id]);
+    } else {
+      return;
+    }
+    const nodes = data.nodes.filter((n) => idsToCopy.has(n.id));
+    const edges = data.edges.filter((e) => idsToCopy.has(e.from) && idsToCopy.has(e.to));
+    setClipboard({ nodes, edges });
+  }, [selectedNode, selectedIds, data.nodes, data.edges]);
 
   const pasteNode = useCallback(() => {
-    if (!clipboardNode) return;
-    const id = `node_${Date.now()}`;
-    const newNode = {
-      ...clipboardNode,
-      id,
-      position: {
-        x: clipboardNode.position.x + 40,
-        y: clipboardNode.position.y + 40,
-      },
-    };
-    updateData({ nodes: [...data.nodes, newNode] });
-    setSelectedId(id);
-    setClipboardNode(newNode);
-  }, [clipboardNode, data.nodes, updateData]);
+    if (clipboard.nodes.length === 0) return;
+    const now = Date.now();
+    const idMap = new Map(clipboard.nodes.map((n, i) => [n.id, `node_${now}_${i}`]));
+    const newNodes = clipboard.nodes.map((n) => ({
+      ...n,
+      id: idMap.get(n.id),
+      position: { x: n.position.x + 40, y: n.position.y + 40 },
+    }));
+    const newEdges = clipboard.edges.map((e, i) => ({
+      ...e,
+      id: `e_${now}_${i}`,
+      from: idMap.get(e.from),
+      to: idMap.get(e.to),
+    }));
+    updateData({
+      nodes: [...data.nodes, ...newNodes],
+      edges: [...data.edges, ...newEdges],
+    });
+    const newIds = newNodes.map((n) => n.id);
+    if (newIds.length === 1) {
+      setSelectedId(newIds[0]);
+      setSelectedIds(new Set());
+    } else {
+      setSelectedId(null);
+      setSelectedIds(new Set(newIds));
+    }
+    setClipboard({ nodes: newNodes, edges: newEdges });
+  }, [clipboard, data.nodes, data.edges, updateData, setSelectedId, setSelectedIds]);
 
   // --- Edge actions ---
 
@@ -233,6 +254,13 @@ export function useSkillTree(gistConfig = null) {
     (source, target) => {
       const newEdge = { id: `e-${Date.now()}`, from: source, to: target, type: DEFAULT_EDGE_TYPE };
       updateData({ edges: [...data.edges, newEdge] });
+    },
+    [data.edges, updateData],
+  );
+
+  const deleteEdge = useCallback(
+    (edgeId) => {
+      updateData({ edges: data.edges.filter((e) => e.id !== edgeId) });
     },
     [data.edges, updateData],
   );
@@ -367,6 +395,7 @@ export function useSkillTree(gistConfig = null) {
     updateNodePosition,
     updateNodePositions,
     addEdge,
+    deleteEdge,
     updateEdgeType,
     addTagStyle,
     updateTagStyle,

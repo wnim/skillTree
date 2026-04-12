@@ -10,11 +10,12 @@ import {
 } from '@xyflow/react';
 import { SkillNode } from './SkillNode';
 import { EditableNode } from './EditableNode';
+import { CustomBezierEdge } from './CustomBezierEdge';
 import { ContextMenu } from './ContextMenu';
 import { loadViewport, saveViewport } from '../utils/viewport';
 
 export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTree, onOpenInspector }, ref) {
-  const { addNode, deleteNode, addEdge, updateNodePosition, updateNodePositions, updateNodeById,
+  const { addNode, deleteNode, addEdge, deleteEdge, updateNodePosition, updateNodePositions, updateNodeById,
     setSelectedId, setSelectedIds, setEditingId,
     selectedId, selectedIds } = skillTree;
   const isEditing = skillTree.editingId != null;
@@ -25,6 +26,8 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
   const [contextMenu, setContextMenu] = useState(null);
   const [lastPaneClick, setLastPaneClick] = useState({ x: 200, y: 120 });
   const [isPanMode, setIsPanMode] = useState(false);
+  const [selectedEdgeId, setSelectedEdgeId] = useState(null);
+  const [edgePopupPos, setEdgePopupPos] = useState(null);
   const isShiftHeld = useRef(false);
   const selectedIdRef = useRef(selectedId);
   const selectedIdsRef = useRef(selectedIds);
@@ -33,6 +36,7 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
   const reactFlowRef = useRef(null);
 
   const nodeTypes = useMemo(() => ({ skillNode: SkillNode, editableNode: EditableNode }), []);
+  const edgeTypes = useMemo(() => ({ customBezier: CustomBezierEdge }), []);
 
   // Enhance editing nodes with the type switch and update callbacks
   const enhancedNodes = useMemo(() => {
@@ -50,11 +54,19 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
     });
   }, [flowNodes, updateNodeById, setEditingId]);
 
-  // Sync flow state from parent data
+  // Sync flow state from parent data — preserve ReactFlow's internal `selected` state
+  // so that pushing structural updates (add/move/edit) doesn't interrupt a drag-select.
   useEffect(() => {
-    setNodes(enhancedNodes);
-    setEdges(flowEdges);
-  }, [enhancedNodes, flowEdges, setNodes, setEdges]);
+    setNodes((prev) => {
+      const prevSelected = new Set(prev.filter((n) => n.selected).map((n) => n.id));
+      return enhancedNodes.map((n) => ({ ...n, selected: prevSelected.has(n.id) }));
+    });
+    setEdges(flowEdges.map((e) =>
+      e.id === selectedEdgeId
+        ? { ...e, style: { ...e.style, stroke: 'orange' } }
+        : e
+    ));
+  }, [enhancedNodes, flowEdges, setNodes, setEdges, selectedEdgeId]);
 
   // Keep refs in sync so handleSelectionChange always sees fresh values
   useEffect(() => { selectedIdRef.current = selectedId; }, [selectedId]);
@@ -101,12 +113,32 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
     [reactFlowInstance],
   );
 
+  const clearSelectedEdge = useCallback(() => {
+    setSelectedEdgeId(null);
+    setEdgePopupPos(null);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedEdgeId) return;
+    const onKeyDown = (e) => {
+      const tag = document.activeElement?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        deleteEdge(selectedEdgeId);
+        clearSelectedEdge();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedEdgeId, deleteEdge, clearSelectedEdge]);
+
   const handlePaneClick = useCallback(() => {
     setSelectedId(null);
     setSelectedIds(new Set());
     setEditingId(null);
     setContextMenu(null);
-  }, [setSelectedId, setSelectedIds, setEditingId]);
+    clearSelectedEdge();
+  }, [setSelectedId, setSelectedIds, setEditingId, clearSelectedEdge]);
 
   const handleSelectionChange = useCallback(
     ({ nodes: selectedNodes }) => {
@@ -148,9 +180,10 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
 
   const handleNodeClick = useCallback((_event, node) => {
     setSelectedId(node.id);
+    clearSelectedEdge();
     // Don't exit editing if the user clicked inside the already-editing node
     if (skillTree.editingId !== node.id) setEditingId(null);
-  }, [setSelectedId, setEditingId, skillTree.editingId]);
+  }, [setSelectedId, setEditingId, clearSelectedEdge, skillTree.editingId]);
 
   const handleNodeDoubleClick = useCallback((_event, node) => {
     setSelectedId(node.id);
@@ -164,6 +197,20 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
 
   const handleNodesChange = useCallback(
     (changes) => {
+      // When Shift is held, prevent ReactFlow from visually deselecting already-selected nodes
+      // as a new drag-selection starts. Without this, the select:false events emitted at drag
+      // start would strip the visual selection before handleSelectionChange can union them back.
+      if (isShiftHeld.current) {
+        const currentAll = new Set([
+          ...(selectedIdRef.current ? [selectedIdRef.current] : []),
+          ...selectedIdsRef.current,
+        ]);
+        changes = changes.map((c) =>
+          c.type === 'select' && !c.selected && currentAll.has(c.id)
+            ? { ...c, selected: true }
+            : c,
+        );
+      }
       onNodesChange(changes);
       const settled = changes.filter((c) => c.type === 'position' && c.position && !c.dragging);
       if (settled.length === 1) {
@@ -180,6 +227,17 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
     setSelectedId(node.id);
     setContextMenu({ x: event.clientX, y: event.clientY, type: 'node', nodeId: node.id });
   }, [setSelectedId]);
+
+  const handleEdgeContextMenu = useCallback((event, edge) => {
+    event.preventDefault();
+    setSelectedEdgeId(edge.id);
+    setEdgePopupPos({ x: event.clientX, y: event.clientY });
+  }, []);
+
+  const handleEdgeClick = useCallback((event, edge) => {
+    setSelectedEdgeId(edge.id);
+    setEdgePopupPos({ x: event.clientX, y: event.clientY });
+  }, []);
 
   const handlePaneContextMenu = useCallback((event) => {
     event.preventDefault();
@@ -223,6 +281,7 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           onInit={handleInit}
           onMoveEnd={handleMoveEnd}
           onNodeClick={handleNodeClick}
@@ -232,7 +291,9 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
           onNodesChange={handleNodesChange}
           onEdgesChange={onEdgesChange}
           onSelectionChange={handleSelectionChange}
+          onEdgeClick={handleEdgeClick}
           onNodeContextMenu={handleNodeContextMenu}
+          onEdgeContextMenu={handleEdgeContextMenu}
           onPaneContextMenu={handlePaneContextMenu}
           panOnDrag={isPanMode && !isEditing}
           panOnScroll={!isEditing}
@@ -259,6 +320,28 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
         onDelete={handleContextDelete}
         onClose={closeContextMenu}
       />
+      {selectedEdgeId && edgePopupPos && (
+        <div
+          style={{
+            position: 'fixed',
+            left: edgePopupPos.x + 6,
+            top: edgePopupPos.y - 22,
+            background: 'rgba(20,20,20,0.7)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            color: 'rgba(255,255,255,0.45)',
+            borderRadius: 3,
+            padding: '1px 6px',
+            cursor: 'pointer',
+            fontSize: 13,
+            lineHeight: '18px',
+            userSelect: 'none',
+            zIndex: 1000,
+          }}
+          onClick={() => { deleteEdge(selectedEdgeId); clearSelectedEdge(); }}
+        >
+          ×
+        </div>
+      )}
     </div>
   );
 });

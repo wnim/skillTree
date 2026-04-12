@@ -3,6 +3,7 @@ import { Toolbar } from './components/Toolbar';
 import { Canvas } from './components/Canvas';
 import { Sidebar } from './components/Sidebar';
 import { GistSetupModal } from './components/GistSetupModal';
+import { KeyboardShortcutsHelp } from './components/KeyboardShortcutsHelp';
 import { useSkillTree } from './hooks/useSkillTree';
 import { useGistConfig } from './hooks/useGistConfig';
 
@@ -12,6 +13,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('inspector');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [gistModalOpen, setGistModalOpen] = useState(false);
+  const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   const canvasRef = useRef(null);
 
   const handleAddNode = useCallback(() => {
@@ -68,6 +70,13 @@ function App() {
         skillTree.copyNode();
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
         skillTree.pasteNode();
+      } else if ((e.key === 'Delete' || e.key === 'Backspace') && skillTree.selectedId) {
+        skillTree.deleteNode(skillTree.selectedId);
+      } else if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 't' || e.key === 'T')) {
+        e.preventDefault();
+        skillTree.autoLayout();
+      } else if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
+        setShortcutsHelpOpen(o => !o);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -76,6 +85,7 @@ function App() {
 
   return (
     <>
+      {shortcutsHelpOpen && <KeyboardShortcutsHelp onClose={() => setShortcutsHelpOpen(false)} />}
       <GistSetupModal
         opened={isFirstTime || gistModalOpen}
         onClose={isFirstTime ? undefined : () => setGistModalOpen(false)}

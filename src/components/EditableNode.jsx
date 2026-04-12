@@ -21,9 +21,13 @@ export function EditableNode({ data }) {
       if (e.key === 'Escape') {
         e.preventDefault();
         onClose();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        onUpdate(id, 'label', localLabel);
+        onClose();
       }
     },
-    [onClose],
+    [id, localLabel, onClose, onUpdate],
   );
 
   const handleLabelChange = useCallback((e) => {
@@ -78,6 +82,7 @@ export function EditableNode({ data }) {
         value={localScore}
         onChange={setLocalScore}
         onChangeEnd={handleScoreChangeEnd}
+        onPointerDown={(e) => e.stopPropagation()}
         label={(val) => val}
         size="xs"
         mb={2}
