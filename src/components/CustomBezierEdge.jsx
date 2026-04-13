@@ -1,4 +1,6 @@
+import { useContext } from 'react';
 import { getBezierPath } from '@xyflow/react';
+import { HoverIdContext } from './HoverContext';
 
 const ARROW_H = 10;
 const ARROW_W = 7;
@@ -8,12 +10,15 @@ const OVERLAP = 5;
 
 export function CustomBezierEdge({
   id,
+  source, target,
   sourceX, sourceY,
   targetX, targetY,
   sourcePosition, targetPosition,
   style = {},
   interactionWidth = 20,
 }) {
+  const hoveredNodeId = useContext(HoverIdContext);
+  const hovered = source === hoveredNodeId || target === hoveredNodeId;
   const [edgePath] = getBezierPath({
     sourceX,
     sourceY: sourceY - OVERLAP,          // start slightly inside source node (Y up = into node)
@@ -43,6 +48,17 @@ export function CustomBezierEdge({
         strokeWidth={interactionWidth}
         className="react-flow__edge-interaction"
       />
+      {/* Glow halo on node hover */}
+      {hovered && (
+        <path
+          d={edgePath}
+          fill="none"
+          stroke={color}
+          strokeWidth={7}
+          strokeOpacity={0.22}
+          style={{ filter: 'blur(3px)' }}
+        />
+      )}
       <path
         id={id}
         className="react-flow__edge-path"

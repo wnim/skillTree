@@ -11,6 +11,7 @@ import {
 import { SkillNode } from './SkillNode';
 import { EditableNode } from './EditableNode';
 import { CustomBezierEdge } from './CustomBezierEdge';
+import { HoverProvider } from './HoverContext';
 import { ContextMenu } from './ContextMenu';
 import { loadViewport, saveViewport } from '../utils/viewport';
 
@@ -54,19 +55,21 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
     });
   }, [flowNodes, updateNodeById, setEditingId]);
 
-  // Sync flow state from parent data — preserve ReactFlow's internal `selected` state
-  // so that pushing structural updates (add/move/edit) doesn't interrupt a drag-select.
+  // Sync flow state from parent data. Derive `selected` from our React state
+  // (selectedId / selectedIds) so that programmatic selections (e.g. after paste)
+  // are reflected correctly while still surviving structural updates mid-drag.
   useEffect(() => {
-    setNodes((prev) => {
-      const prevSelected = new Set(prev.filter((n) => n.selected).map((n) => n.id));
-      return enhancedNodes.map((n) => ({ ...n, selected: prevSelected.has(n.id) }));
-    });
+    const selectedSet = new Set([
+      ...(selectedId ? [selectedId] : []),
+      ...selectedIds,
+    ]);
+    setNodes(enhancedNodes.map((n) => ({ ...n, selected: selectedSet.has(n.id) })));
     setEdges(flowEdges.map((e) =>
       e.id === selectedEdgeId
         ? { ...e, style: { ...e.style, stroke: 'orange' } }
         : e
     ));
-  }, [enhancedNodes, flowEdges, setNodes, setEdges, selectedEdgeId]);
+  }, [enhancedNodes, flowEdges, setNodes, setEdges, selectedEdgeId, selectedId, selectedIds]);
 
   // Keep refs in sync so handleSelectionChange always sees fresh values
   useEffect(() => { selectedIdRef.current = selectedId; }, [selectedId]);
@@ -275,6 +278,7 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
   useImperativeHandle(ref, () => ({ fitView }), [fitView]);
 
   return (
+    <HoverProvider>
     <div ref={containerRef} style={{ position: 'relative', height: '100%' }} onDoubleClick={handleCanvasDoubleClick}>
       <ReactFlowProvider>
         <ReactFlow
@@ -343,5 +347,6 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
         </div>
       )}
     </div>
+    </HoverProvider>
   );
 });

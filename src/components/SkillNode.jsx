@@ -1,9 +1,13 @@
+import { useContext, useState } from 'react';
 import { Handle } from '@xyflow/react';
 import { Paper, Text, Progress } from '@mantine/core';
 import { scoreColor } from '../utils/score';
+import { HoverSetContext } from './HoverContext';
 
-export function SkillNode({ data, selected }) {
+export function SkillNode({ id, data, selected }) {
   const { score, label, isEditing, tagColor } = data;
+  const setHoveredNodeId = useContext(HoverSetContext);
+  const [hovered, setHovered] = useState(false);
   const percent = score == null ? 0 : (score / 10) * 100;
 
   const borderColor = isEditing
@@ -16,11 +20,15 @@ export function SkillNode({ data, selected }) {
     ? '0 0 0 3px var(--mantine-color-blue-5), 0 0 18px 2px rgba(91, 156, 246, 0.35)'
     : selected
     ? '0 0 0 2px var(--mantine-color-blue-8)'
+    : hovered
+    ? '0 0 0 2px rgba(160, 180, 230, 0.35), 0 0 14px 5px rgba(160, 180, 230, 0.12)'
     : undefined;
 
   return (
     <Paper
       p={6}
+      onMouseEnter={() => { setHovered(true); setHoveredNodeId(id); }}
+      onMouseLeave={() => { setHovered(false); setHoveredNodeId(null); }}
       style={{
         width: 180,
         border: `2px solid ${borderColor}`,

@@ -6,12 +6,14 @@ import { GistSetupModal } from './components/GistSetupModal';
 import { KeyboardShortcutsHelp } from './components/KeyboardShortcutsHelp';
 import { useSkillTree } from './hooks/useSkillTree';
 import { useGistConfig } from './hooks/useGistConfig';
+import { useLocalStorage } from './hooks/useLocalStorage';
 
 function App() {
   const { config, setConfig } = useGistConfig();
-  const skillTree = useSkillTree(config);
+  const [sidebarOpen, setSidebarOpen] = useLocalStorage('psskill_ui_sidebar', false);
+  const [hideMaxScore, setHideMaxScore] = useLocalStorage('psskill_ui_hidemaxscore', false);
+  const skillTree = useSkillTree(config, hideMaxScore);
   const [activeTab, setActiveTab] = useState('inspector');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [gistModalOpen, setGistModalOpen] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   const canvasRef = useRef(null);
@@ -75,6 +77,9 @@ function App() {
       } else if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 't' || e.key === 'T')) {
         e.preventDefault();
         skillTree.autoLayout();
+      } else if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'h' || e.key === 'H')) {
+        e.preventDefault();
+        setHideMaxScore((v) => !v);
       } else if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
         setShortcutsHelpOpen(o => !o);
       }
@@ -102,8 +107,10 @@ function App() {
           onImport={handleImport}
           syncStatus={skillTree.syncStatus}
           onGistSettings={() => setGistModalOpen(true)}
-          onToggleSidebar={() => setSidebarOpen(o => !o)}
+          onToggleSidebar={() => setSidebarOpen((o) => !o)}
           sidebarOpen={sidebarOpen}
+          hideMaxScore={hideMaxScore}
+          onToggleHideMaxScore={() => setHideMaxScore((v) => !v)}
         />
         <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
           <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>

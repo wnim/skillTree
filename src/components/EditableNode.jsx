@@ -84,7 +84,7 @@ export function EditableNode({ data }) {
         onChangeEnd={handleScoreChangeEnd}
         onPointerDown={(e) => e.stopPropagation()}
         label={(val) => val}
-        size="xs"
+        size="md"
         mb={2}
       />
 

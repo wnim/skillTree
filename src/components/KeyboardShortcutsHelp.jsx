@@ -9,6 +9,7 @@ const SHORTCUTS = [
   { keys: ['Ctrl', 'V'], description: 'Paste node' },
   { keys: ['Delete'], description: 'Delete selected node' },
   { keys: ['Ctrl', 'Alt', 'T'], description: 'Auto layout' },
+  { keys: ['Ctrl', 'Alt', 'H'], description: 'Toggle hide mastered nodes (score 10/10)' },
 ];
 
 export function KeyboardShortcutsHelp({ onClose }) {

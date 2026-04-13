@@ -44,7 +44,7 @@ function toReactFlowEdges(edges, edgeStyles) {
   });
 }
 
-export function useSkillTree(gistConfig = null) {
+export function useSkillTree(gistConfig = null, hideMaxScore = false) {
   const [data, setData] = useState(loadData);
   const [syncStatus, setSyncStatus] = useState(gistConfig?.gistId ? 'loading' : 'idle');
   const [clipboard, setClipboard] = useState({ nodes: [], edges: [] });
@@ -107,14 +107,31 @@ export function useSkillTree(gistConfig = null) {
     [data.nodes, selectedId],
   );
 
+  const hiddenNodeIds = useMemo(
+    () =>
+      hideMaxScore
+        ? new Set(data.nodes.filter((n) => n.score === 10).map((n) => n.id))
+        : new Set(),
+    [data.nodes, hideMaxScore],
+  );
+
   const flowNodes = useMemo(
-    () => toReactFlowNodes(data.nodes, data.tag_styles, editingId),
-    [data.nodes, data.tag_styles, editingId],
+    () => toReactFlowNodes(
+      hideMaxScore ? data.nodes.filter((n) => !hiddenNodeIds.has(n.id)) : data.nodes,
+      data.tag_styles,
+      editingId,
+    ),
+    [data.nodes, data.tag_styles, editingId, hiddenNodeIds],
   );
 
   const flowEdges = useMemo(
-    () => toReactFlowEdges(data.edges, data.edge_styles),
-    [data.edges, data.edge_styles],
+    () => toReactFlowEdges(
+      hideMaxScore
+        ? data.edges.filter((e) => !hiddenNodeIds.has(e.from) && !hiddenNodeIds.has(e.to))
+        : data.edges,
+      data.edge_styles,
+    ),
+    [data.edges, data.edge_styles, hiddenNodeIds],
   );
 
   // --- Node actions ---
@@ -124,7 +141,6 @@ export function useSkillTree(gistConfig = null) {
       const id = `node_${Date.now()}`;
       const newNode = { id, label: 'New Trick', score: null, tags: [], notes: '', position };
       updateData({ nodes: [...data.nodes, newNode] });
-      setSelectedId(id);
       setEditingId(id);
       return id;
     },
