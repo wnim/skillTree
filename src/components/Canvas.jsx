@@ -18,8 +18,8 @@ import { loadViewport, saveViewport } from '../utils/viewport';
 export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTree, onOpenInspector }, ref) {
   const { addNode, deleteNode, addEdge, deleteEdge, updateNodePosition, updateNodePositions, updateNodeById,
     setSelectedId, setSelectedIds, setEditingId,
-    selectedId, selectedIds } = skillTree;
-  const isEditing = skillTree.editingId != null;
+    selectedId, selectedIds, editingId } = skillTree;
+  const isEditing = editingId != null;
 
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -35,41 +35,87 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
   const savedViewport = useRef(loadViewport());
   const containerRef = useRef(null);
   const reactFlowRef = useRef(null);
+  // Tracks the source node from enhancedNodes that corresponds to each committed ReactFlow node.
+  // Lets Effect A reuse existing node objects when nothing in that node changed.
+  const nodeSourceRef = useRef(new Map());
 
   const nodeTypes = useMemo(() => ({ skillNode: SkillNode, editableNode: EditableNode }), []);
   const edgeTypes = useMemo(() => ({ customBezier: CustomBezierEdge }), []);
 
-  // Enhance editing nodes with the type switch and update callbacks
+  const closeEditingNode = useCallback(() => setEditingId(null), [setEditingId]);
+
+  // Enhance the editing node with the type switch, update callbacks, and disabled drag.
+  // Fast path: if nothing is being edited, return the same array reference unchanged.
   const enhancedNodes = useMemo(() => {
+    if (editingId == null) return flowNodes;
     return flowNodes.map((n) => {
-      if (!n.data.isEditing) return n;
+      if (n.id !== editingId) return n;
       return {
         ...n,
         type: 'editableNode',
+        draggable: false,
         data: {
           ...n.data,
+          isEditing: true,
           onUpdate: updateNodeById,
-          onClose: () => setEditingId(null),
+          onClose: closeEditingNode,
         },
       };
     });
-  }, [flowNodes, updateNodeById, setEditingId]);
+  }, [flowNodes, editingId, updateNodeById, closeEditingNode]);
 
-  // Sync flow state from parent data. Derive `selected` from our React state
-  // (selectedId / selectedIds) so that programmatic selections (e.g. after paste)
-  // are reflected correctly while still surviving structural updates mid-drag.
+  // Structural node sync: fires when the node graph or editing state changes.
+  // Only recreates ReactFlow node objects for nodes whose source actually changed.
+  useEffect(() => {
+    const prevSources = nodeSourceRef.current;
+    nodeSourceRef.current = new Map(enhancedNodes.map((n) => [n.id, n]));
+    setNodes((current) => {
+      const currentById = new Map(current.map((n) => [n.id, n]));
+      const selectedSet = new Set([
+        ...(selectedIdRef.current ? [selectedIdRef.current] : []),
+        ...selectedIdsRef.current,
+      ]);
+      let anyChanged = false;
+      const next = enhancedNodes.map((n) => {
+        const existing = currentById.get(n.id);
+        const shouldBeSelected = selectedSet.has(n.id);
+        if (existing && prevSources.get(n.id) === n && existing.selected === shouldBeSelected) {
+          return existing;
+        }
+        anyChanged = true;
+        return { ...n, selected: shouldBeSelected };
+      });
+      return anyChanged ? next : current;
+    });
+  }, [enhancedNodes]);
+
+  // Selection-only sync: fires when selection changes but the graph is unchanged.
+  // Creates new objects only for the 1-2 nodes whose `selected` flag actually flipped.
   useEffect(() => {
     const selectedSet = new Set([
       ...(selectedId ? [selectedId] : []),
       ...selectedIds,
     ]);
-    setNodes(enhancedNodes.map((n) => ({ ...n, selected: selectedSet.has(n.id) })));
+    setNodes((current) => {
+      let changed = false;
+      const next = current.map((n) => {
+        const shouldBe = selectedSet.has(n.id);
+        if (n.selected === shouldBe) return n;
+        changed = true;
+        return { ...n, selected: shouldBe };
+      });
+      return changed ? next : current;
+    });
+  }, [selectedId, selectedIds]);
+
+  // Edge sync: fires when edge data or the selected edge changes.
+  useEffect(() => {
     setEdges(flowEdges.map((e) =>
       e.id === selectedEdgeId
         ? { ...e, style: { ...e.style, stroke: 'orange' } }
         : e
     ));
-  }, [enhancedNodes, flowEdges, setNodes, setEdges, selectedEdgeId, selectedId, selectedIds]);
+  }, [flowEdges, selectedEdgeId]);
 
   // Keep refs in sync so handleSelectionChange always sees fresh values
   useEffect(() => { selectedIdRef.current = selectedId; }, [selectedId]);
@@ -121,23 +167,28 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
     setEdgePopupPos(null);
   }, []);
 
+  const deleteEdgeRef = useRef(deleteEdge);
+  useEffect(() => { deleteEdgeRef.current = deleteEdge; }, [deleteEdge]);
+
   useEffect(() => {
     if (!selectedEdgeId) return;
     const onKeyDown = (e) => {
       const tag = document.activeElement?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        deleteEdge(selectedEdgeId);
+        deleteEdgeRef.current(selectedEdgeId);
         clearSelectedEdge();
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [selectedEdgeId, deleteEdge, clearSelectedEdge]);
+  }, [selectedEdgeId, clearSelectedEdge]);
 
   const handlePaneClick = useCallback(() => {
     setSelectedId(null);
-    setSelectedIds(new Set());
+    // Only create a new Set if the current one is non-empty — avoids spurious Effect B runs
+    // (and the associated phantom setNodes calls) on every click.
+    setSelectedIds((prev) => (prev.size === 0 ? prev : new Set()));
     setEditingId(null);
     setContextMenu(null);
     clearSelectedEdge();
@@ -174,8 +225,7 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
     [setSelectedId, setSelectedIds],
   );
 
-  const handleCanvasDoubleClick = useCallback((event) => {
-    if (!event.target.classList.contains('react-flow__pane')) return;
+  const handlePaneDoubleClick = useCallback((event) => {
     const position = projectToFlow({ x: event.clientX, y: event.clientY });
     addNode(position);
     onOpenInspector();
@@ -185,8 +235,8 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
     setSelectedId(node.id);
     clearSelectedEdge();
     // Don't exit editing if the user clicked inside the already-editing node
-    if (skillTree.editingId !== node.id) setEditingId(null);
-  }, [setSelectedId, setEditingId, clearSelectedEdge, skillTree.editingId]);
+    if (editingId !== node.id) setEditingId(null);
+  }, [setSelectedId, setEditingId, clearSelectedEdge, editingId]);
 
   const handleNodeDoubleClick = useCallback((_event, node) => {
     setSelectedId(node.id);
@@ -279,7 +329,7 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
 
   return (
     <HoverProvider>
-    <div ref={containerRef} style={{ position: 'relative', height: '100%' }} onDoubleClick={handleCanvasDoubleClick}>
+    <div ref={containerRef} style={{ position: 'relative', height: '100%' }}>
       <ReactFlowProvider>
         <ReactFlow
           nodes={nodes}
@@ -291,6 +341,7 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
           onNodeClick={handleNodeClick}
           onNodeDoubleClick={handleNodeDoubleClick}
           onPaneClick={handlePaneClick}
+          onPaneDoubleClick={handlePaneDoubleClick}
           onConnect={handleConnect}
           onNodesChange={handleNodesChange}
           onEdgesChange={onEdgesChange}

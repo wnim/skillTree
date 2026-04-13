@@ -1,10 +1,10 @@
-import { useContext, useState } from 'react';
+import { memo, useContext, useState } from 'react';
 import { Handle } from '@xyflow/react';
 import { Paper, Text, Progress } from '@mantine/core';
 import { scoreColor } from '../utils/score';
 import { HoverSetContext } from './HoverContext';
 
-export function SkillNode({ id, data, selected }) {
+export const SkillNode = memo(function SkillNode({ id, data, selected }) {
   const { score, label, isEditing, tagColor } = data;
   const setHoveredNodeId = useContext(HoverSetContext);
   const [hovered, setHovered] = useState(false);
@@ -21,7 +21,7 @@ export function SkillNode({ id, data, selected }) {
     : selected
     ? '0 0 0 2px var(--mantine-color-blue-8)'
     : hovered
-    ? '0 0 0 2px rgba(160, 180, 230, 0.35), 0 0 14px 5px rgba(160, 180, 230, 0.12)'
+    ? '0 0 0 2px #00d4ff, 0 0 18px 6px rgba(0, 212, 255, 0.55), 0 0 40px 12px rgba(0, 212, 255, 0.25)'
     : undefined;
 
   return (
@@ -51,4 +51,4 @@ export function SkillNode({ id, data, selected }) {
       <Handle type="source" position="bottom" className="handle" />
     </Paper>
   );
-}
+});

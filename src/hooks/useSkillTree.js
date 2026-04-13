@@ -13,19 +13,8 @@ function loadData() {
   return defaultData;
 }
 
-function toReactFlowNodes(nodes, tagStyles, editingId) {
-  return nodes.map((node) => ({
-    id: node.id,
-    type: 'skillNode',
-    position: node.position,
-    draggable: node.id !== editingId,
-    data: {
-      ...node,
-      tagColor: node.tags?.[0] ? tagStyles[node.tags[0]]?.color ?? '#555' : '#555',
-      isEditing: node.id === editingId,
-    },
-  }));
-}
+// Stable sentinel so the empty-Map initial state never leaks into comparisons
+const EMPTY_MAP = new Map();
 
 function toReactFlowEdges(edges, edgeStyles) {
   return edges.map((edge) => {
@@ -90,14 +79,29 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
     return () => clearTimeout(saveTimeoutRef.current);
   }, [data, gistConfig]);
 
+  // Cache for toReactFlowNodes: preserves wrapper object identity when source node is unchanged.
+  // Keyed by node id → { source (data node ref), tagColor, wrapper (ReactFlow node object) }
+  const prevFlowNodesRef = useRef(EMPTY_MAP);
+
   const [selectedId, setSelectedId] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
 
-  const updateData = useCallback((partial) => {
+  // Refs for reading current values inside stable callbacks without capturing them as deps
+  const selectedIdRef = useRef(selectedId);
+  useEffect(() => { selectedIdRef.current = selectedId; }, [selectedId]);
+  const selectedIdsRef = useRef(selectedIds);
+  useEffect(() => { selectedIdsRef.current = selectedIds; }, [selectedIds]);
+  const clipboardRef = useRef(clipboard);
+  useEffect(() => { clipboardRef.current = clipboard; }, [clipboard]);
+  const dataRef = useRef(data);
+  useEffect(() => { dataRef.current = data; }, [data]);
+
+  const updateData = useCallback((partialOrFn) => {
     setData((prev) => {
       pastRef.current = [...pastRef.current.slice(-(MAX_HISTORY - 1)), prev];
       futureRef.current = [];
+      const partial = typeof partialOrFn === 'function' ? partialOrFn(prev) : partialOrFn;
       return { ...prev, ...partial };
     });
   }, []);
@@ -115,14 +119,29 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
     [data.nodes, hideMaxScore],
   );
 
-  const flowNodes = useMemo(
-    () => toReactFlowNodes(
-      hideMaxScore ? data.nodes.filter((n) => !hiddenNodeIds.has(n.id)) : data.nodes,
-      data.tag_styles,
-      editingId,
-    ),
-    [data.nodes, data.tag_styles, editingId, hiddenNodeIds],
-  );
+  const flowNodes = useMemo(() => {
+    const prev = prevFlowNodesRef.current;
+    const nextPrev = new Map();
+    const nodes = hideMaxScore ? data.nodes.filter((n) => !hiddenNodeIds.has(n.id)) : data.nodes;
+    const result = nodes.map((node) => {
+      const tagColor = node.tags?.[0] ? data.tag_styles[node.tags[0]]?.color ?? '#555' : '#555';
+      const cached = prev.get(node.id);
+      if (cached && cached.source === node && cached.tagColor === tagColor) {
+        nextPrev.set(node.id, cached);
+        return cached.wrapper;
+      }
+      const wrapper = {
+        id: node.id,
+        type: 'skillNode',
+        position: node.position,
+        data: { ...node, tagColor },
+      };
+      nextPrev.set(node.id, { source: node, tagColor, wrapper });
+      return wrapper;
+    });
+    prevFlowNodesRef.current = nextPrev;
+    return result;
+  }, [data.nodes, data.tag_styles, hiddenNodeIds]);
 
   const flowEdges = useMemo(
     () => toReactFlowEdges(
@@ -140,43 +159,46 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
     (position) => {
       const id = `node_${Date.now()}`;
       const newNode = { id, label: 'New Trick', score: null, tags: [], notes: '', position };
-      updateData({ nodes: [...data.nodes, newNode] });
+      updateData((prev) => ({ nodes: [...prev.nodes, newNode] }));
       setEditingId(id);
       return id;
     },
-    [data.nodes, updateData],
+    [updateData],
   );
 
   const deleteNode = useCallback(
     (nodeId) => {
-      updateData({
-        nodes: data.nodes.filter((n) => n.id !== nodeId),
-        edges: data.edges.filter((e) => e.from !== nodeId && e.to !== nodeId),
-      });
-      if (selectedId === nodeId) setSelectedId(null);
+      updateData((prev) => ({
+        nodes: prev.nodes.filter((n) => n.id !== nodeId),
+        edges: prev.edges.filter((e) => e.from !== nodeId && e.to !== nodeId),
+      }));
+      if (selectedIdRef.current === nodeId) setSelectedId(null);
     },
-    [data.nodes, data.edges, selectedId, updateData],
+    [updateData],
   );
 
   const updateNode = useCallback(
     (field, value) => {
-      if (!selectedId) return;
+      const selId = selectedIdRef.current;
+      if (!selId) return;
       if (field === 'tags') {
-        const newStyles = { ...data.tag_styles };
-        value.forEach((tag) => {
-          if (!newStyles[tag]) newStyles[tag] = { color: '#888' };
-        });
-        updateData({
-          nodes: data.nodes.map((n) => (n.id === selectedId ? { ...n, tags: value } : n)),
-          tag_styles: newStyles,
+        updateData((prev) => {
+          const newStyles = { ...prev.tag_styles };
+          value.forEach((tag) => {
+            if (!newStyles[tag]) newStyles[tag] = { color: '#888' };
+          });
+          return {
+            nodes: prev.nodes.map((n) => (n.id === selId ? { ...n, tags: value } : n)),
+            tag_styles: newStyles,
+          };
         });
         return;
       }
-      updateData({
-        nodes: data.nodes.map((n) => (n.id === selectedId ? { ...n, [field]: value } : n)),
-      });
+      updateData((prev) => ({
+        nodes: prev.nodes.map((n) => (n.id === selId ? { ...n, [field]: value } : n)),
+      }));
     },
-    [data.nodes, data.tag_styles, selectedId, updateData],
+    [updateData],
   );
 
   const updateNodeById = useCallback(
@@ -221,38 +243,42 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
   // --- Copy / Paste ---
 
   const copyNode = useCallback(() => {
+    const selIds = selectedIdsRef.current;
+    const selId = selectedIdRef.current;
     let idsToCopy;
-    if (selectedIds.size > 1) {
-      idsToCopy = selectedIds;
-    } else if (selectedNode) {
-      idsToCopy = new Set([selectedNode.id]);
+    if (selIds.size > 1) {
+      idsToCopy = selIds;
+    } else if (selId) {
+      idsToCopy = new Set([selId]);
     } else {
       return;
     }
-    const nodes = data.nodes.filter((n) => idsToCopy.has(n.id));
-    const edges = data.edges.filter((e) => idsToCopy.has(e.from) && idsToCopy.has(e.to));
+    const currentData = dataRef.current;
+    const nodes = currentData.nodes.filter((n) => idsToCopy.has(n.id));
+    const edges = currentData.edges.filter((e) => idsToCopy.has(e.from) && idsToCopy.has(e.to));
     setClipboard({ nodes, edges });
-  }, [selectedNode, selectedIds, data.nodes, data.edges]);
+  }, []);
 
   const pasteNode = useCallback(() => {
-    if (clipboard.nodes.length === 0) return;
+    const clip = clipboardRef.current;
+    if (clip.nodes.length === 0) return;
     const now = Date.now();
-    const idMap = new Map(clipboard.nodes.map((n, i) => [n.id, `node_${now}_${i}`]));
-    const newNodes = clipboard.nodes.map((n) => ({
+    const idMap = new Map(clip.nodes.map((n, i) => [n.id, `node_${now}_${i}`]));
+    const newNodes = clip.nodes.map((n) => ({
       ...n,
       id: idMap.get(n.id),
       position: { x: n.position.x + 40, y: n.position.y + 40 },
     }));
-    const newEdges = clipboard.edges.map((e, i) => ({
+    const newEdges = clip.edges.map((e, i) => ({
       ...e,
       id: `e_${now}_${i}`,
       from: idMap.get(e.from),
       to: idMap.get(e.to),
     }));
-    updateData({
-      nodes: [...data.nodes, ...newNodes],
-      edges: [...data.edges, ...newEdges],
-    });
+    updateData((prev) => ({
+      nodes: [...prev.nodes, ...newNodes],
+      edges: [...prev.edges, ...newEdges],
+    }));
     const newIds = newNodes.map((n) => n.id);
     if (newIds.length === 1) {
       setSelectedId(newIds[0]);
@@ -262,32 +288,32 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
       setSelectedIds(new Set(newIds));
     }
     setClipboard({ nodes: newNodes, edges: newEdges });
-  }, [clipboard, data.nodes, data.edges, updateData, setSelectedId, setSelectedIds]);
+  }, [updateData, setSelectedId, setSelectedIds]);
 
   // --- Edge actions ---
 
   const addEdge = useCallback(
     (source, target) => {
       const newEdge = { id: `e-${Date.now()}`, from: source, to: target, type: DEFAULT_EDGE_TYPE };
-      updateData({ edges: [...data.edges, newEdge] });
+      updateData((prev) => ({ edges: [...prev.edges, newEdge] }));
     },
-    [data.edges, updateData],
+    [updateData],
   );
 
   const deleteEdge = useCallback(
     (edgeId) => {
-      updateData({ edges: data.edges.filter((e) => e.id !== edgeId) });
+      updateData((prev) => ({ edges: prev.edges.filter((e) => e.id !== edgeId) }));
     },
-    [data.edges, updateData],
+    [updateData],
   );
 
   const updateEdgeType = useCallback(
     (edgeId, type) => {
-      updateData({
-        edges: data.edges.map((e) => (e.id === edgeId ? { ...e, type } : e)),
-      });
+      updateData((prev) => ({
+        edges: prev.edges.map((e) => (e.id === edgeId ? { ...e, type } : e)),
+      }));
     },
-    [data.edges, updateData],
+    [updateData],
   );
 
   // --- Tag style actions ---
@@ -295,25 +321,27 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
   const addTagStyle = useCallback(
     (tag) => {
       if (!tag) return;
-      updateData({ tag_styles: { ...data.tag_styles, [tag]: { color: '#888' } } });
+      updateData((prev) => ({ tag_styles: { ...prev.tag_styles, [tag]: { color: '#888' } } }));
     },
-    [data.tag_styles, updateData],
+    [updateData],
   );
 
   const updateTagStyle = useCallback(
     (tag, color) => {
-      updateData({ tag_styles: { ...data.tag_styles, [tag]: { ...data.tag_styles[tag], color } } });
+      updateData((prev) => ({ tag_styles: { ...prev.tag_styles, [tag]: { ...prev.tag_styles[tag], color } } }));
     },
-    [data.tag_styles, updateData],
+    [updateData],
   );
 
   const removeTagStyle = useCallback(
     (tag) => {
-      const next = { ...data.tag_styles };
-      delete next[tag];
-      updateData({ tag_styles: next });
+      updateData((prev) => {
+        const next = { ...prev.tag_styles };
+        delete next[tag];
+        return { tag_styles: next };
+      });
     },
-    [data.tag_styles, updateData],
+    [updateData],
   );
 
   // --- Edge style actions ---
@@ -321,34 +349,36 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
   const addEdgeStyle = useCallback(
     (type) => {
       if (!type) return;
-      updateData({ edge_styles: { ...data.edge_styles, [type]: { color: '#aaa', stroke: 'solid' } } });
+      updateData((prev) => ({ edge_styles: { ...prev.edge_styles, [type]: { color: '#aaa', stroke: 'solid' } } }));
     },
-    [data.edge_styles, updateData],
+    [updateData],
   );
 
   const updateEdgeStyle = useCallback(
     (type, field, value) => {
-      updateData({
-        edge_styles: { ...data.edge_styles, [type]: { ...data.edge_styles[type], [field]: value } },
-      });
+      updateData((prev) => ({
+        edge_styles: { ...prev.edge_styles, [type]: { ...prev.edge_styles[type], [field]: value } },
+      }));
     },
-    [data.edge_styles, updateData],
+    [updateData],
   );
 
   const removeEdgeStyle = useCallback(
     (type) => {
-      const next = { ...data.edge_styles };
-      delete next[type];
-      updateData({ edge_styles: next });
+      updateData((prev) => {
+        const next = { ...prev.edge_styles };
+        delete next[type];
+        return { edge_styles: next };
+      });
     },
-    [data.edge_styles, updateData],
+    [updateData],
   );
 
   // --- Layout ---
 
   const autoLayout = useCallback(() => {
-    updateData({ nodes: tidyLayout(data.nodes) });
-  }, [data.nodes, updateData]);
+    updateData((prev) => ({ nodes: tidyLayout(prev.nodes) }));
+  }, [updateData]);
 
   // --- Undo / Redo ---
 
@@ -379,14 +409,14 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
   }, []);
 
   const exportData = useCallback(() => {
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(dataRef.current, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
     link.download = 'pen-spinning-skill-tree.json';
     link.click();
     URL.revokeObjectURL(url);
-  }, [data]);
+  }, []);
 
   return {
     data,

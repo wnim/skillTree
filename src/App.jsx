@@ -17,11 +17,13 @@ function App() {
   const [gistModalOpen, setGistModalOpen] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   const canvasRef = useRef(null);
+  const skillTreeRef = useRef(skillTree);
+  useEffect(() => { skillTreeRef.current = skillTree; });
 
   const handleAddNode = useCallback(() => {
-    skillTree.addNode({ x: 200, y: 120 });
+    skillTreeRef.current.addNode({ x: 200, y: 120 });
     setActiveTab('inspector');
-  }, [skillTree]);
+  }, []);
 
   const handleFitView = useCallback(() => {
     canvasRef.current?.fitView();
@@ -36,13 +38,13 @@ function App() {
       if (!file) return;
       const text = await file.text();
       try {
-        skillTree.importData(JSON.parse(text));
+        skillTreeRef.current.importData(JSON.parse(text));
       } catch {
         // invalid file — ignored
       }
     };
     input.click();
-  }, [skillTree]);
+  }, []);
 
   const openInspector = useCallback(() => {
     setActiveTab('inspector');
@@ -51,9 +53,13 @@ function App() {
 
   const handleGistConfigure = useCallback((newConfig, data) => {
     setConfig(newConfig);
-    skillTree.importData(data);
+    skillTreeRef.current.importData(data);
     setGistModalOpen(false);
-  }, [setConfig, skillTree]);
+  }, [setConfig]);
+
+  const handleGistSettings = useCallback(() => setGistModalOpen(true), []);
+  const handleToggleSidebar = useCallback(() => setSidebarOpen((o) => !o), [setSidebarOpen]);
+  const handleToggleHideMaxScore = useCallback(() => setHideMaxScore((v) => !v), [setHideMaxScore]);
 
   const isFirstTime = !config;
 
@@ -61,22 +67,23 @@ function App() {
     const handleKeyDown = (e) => {
       const tag = document.activeElement?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
+      const st = skillTreeRef.current;
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') {
-        skillTree.undo();
+        st.undo();
       } else if (
         ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'z' || e.key === 'Z')) ||
         ((e.ctrlKey || e.metaKey) && e.key === 'y')
       ) {
-        skillTree.redo();
+        st.redo();
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
-        skillTree.copyNode();
+        st.copyNode();
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
-        skillTree.pasteNode();
-      } else if ((e.key === 'Delete' || e.key === 'Backspace') && skillTree.selectedId) {
-        skillTree.deleteNode(skillTree.selectedId);
+        st.pasteNode();
+      } else if ((e.key === 'Delete' || e.key === 'Backspace') && st.selectedId) {
+        st.deleteNode(st.selectedId);
       } else if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 't' || e.key === 'T')) {
         e.preventDefault();
-        skillTree.autoLayout();
+        st.autoLayout();
       } else if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'h' || e.key === 'H')) {
         e.preventDefault();
         setHideMaxScore((v) => !v);
@@ -86,7 +93,7 @@ function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [skillTree]);
+  }, []);
 
   return (
     <>
@@ -106,11 +113,11 @@ function App() {
           onExport={skillTree.exportData}
           onImport={handleImport}
           syncStatus={skillTree.syncStatus}
-          onGistSettings={() => setGistModalOpen(true)}
-          onToggleSidebar={() => setSidebarOpen((o) => !o)}
+          onGistSettings={handleGistSettings}
+          onToggleSidebar={handleToggleSidebar}
           sidebarOpen={sidebarOpen}
           hideMaxScore={hideMaxScore}
-          onToggleHideMaxScore={() => setHideMaxScore((v) => !v)}
+          onToggleHideMaxScore={handleToggleHideMaxScore}
         />
         <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
           <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>

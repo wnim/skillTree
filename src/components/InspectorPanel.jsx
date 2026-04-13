@@ -1,19 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Stack, TextInput, Textarea, Slider, Select, Text, Button, Group } from '@mantine/core';
 import { DEFAULT_EDGE_TYPE } from '../data/defaultData';
 
 export function InspectorPanel({ selectedNode, edges, edgeStyles, onUpdateNode, onUpdateEdgeType, onDeleteNode, readOnly }) {
   const [tagsRaw, setTagsRaw] = useState('');
+  const [localScore, setLocalScore] = useState(selectedNode?.score ?? 0);
 
   useEffect(() => {
     setTagsRaw(selectedNode ? selectedNode.tags.join(', ') : '');
   }, [selectedNode?.id]);
 
+  useEffect(() => {
+    setLocalScore(selectedNode?.score ?? 0);
+  }, [selectedNode?.id, selectedNode?.score]);
+
+  const connectedEdges = useMemo(
+    () => edges.filter((e) => e.from === selectedNode?.id || e.to === selectedNode?.id),
+    [edges, selectedNode?.id],
+  );
+
   if (!selectedNode) {
     return <Text c="dimmed">Select a node to inspect and edit its details here.</Text>;
   }
-
-  const connectedEdges = edges.filter((e) => e.from === selectedNode.id || e.to === selectedNode.id);
 
   return (
     <Stack gap="md" style={readOnly ? { opacity: 0.45, pointerEvents: 'none' } : undefined}>
@@ -29,8 +37,9 @@ export function InspectorPanel({ selectedNode, edges, edgeStyles, onUpdateNode, 
         <Slider
           min={0}
           max={10}
-          value={selectedNode.score ?? 0}
-          onChange={(val) => onUpdateNode('score', val)}
+          value={localScore}
+          onChange={setLocalScore}
+          onChangeEnd={(val) => onUpdateNode('score', val)}
           disabled={readOnly || selectedNode.score == null}
           label={(val) => val}
           marks={[{ value: 0, label: '0' }, { value: 5, label: '5' }, { value: 10, label: '10' }]}

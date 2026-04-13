@@ -1,4 +1,4 @@
-import { useContext } from 'react';
+import { memo, useContext } from 'react';
 import { getBezierPath } from '@xyflow/react';
 import { HoverIdContext } from './HoverContext';
 
@@ -8,7 +8,7 @@ const ARROW_W = 7;
 // rather than just grazing the edge of the box.
 const OVERLAP = 5;
 
-export function CustomBezierEdge({
+export const CustomBezierEdge = memo(function CustomBezierEdge({
   id,
   source, target,
   sourceX, sourceY,
@@ -50,14 +50,23 @@ export function CustomBezierEdge({
       />
       {/* Glow halo on node hover */}
       {hovered && (
-        <path
-          d={edgePath}
-          fill="none"
-          stroke={color}
-          strokeWidth={7}
-          strokeOpacity={0.22}
-          style={{ filter: 'blur(3px)' }}
-        />
+        <>
+          <path
+            d={edgePath}
+            fill="none"
+            stroke="#00d4ff"
+            strokeWidth={14}
+            strokeOpacity={0.25}
+            style={{ filter: 'blur(6px)' }}
+          />
+          <path
+            d={edgePath}
+            fill="none"
+            stroke="#00d4ff"
+            strokeWidth={4}
+            strokeOpacity={0.85}
+          />
+        </>
       )}
       <path
         id={id}
@@ -69,4 +78,4 @@ export function CustomBezierEdge({
       <polygon points={arrowPoints} fill={color} />
     </>
   );
-}
+});
