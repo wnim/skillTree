@@ -5,6 +5,7 @@ import {
   Wand2,
   CirclePlus,
   EyeOff,
+  Tag,
 } from 'lucide-react';
 
 const ACTIONS = [
@@ -13,6 +14,8 @@ const ACTIONS = [
   { key: 'snap',          Icon: Magnet,      label: 'Snap to grid',                     toggle: true  },
   { key: 'tidy',          Icon: Wand2,       label: 'Auto-layout (tidy)',               toggle: false },
   { key: 'hideMastered',  Icon: EyeOff,      label: 'Hide mastered (max score) nodes',  toggle: true  },
+  { key: 'sep1',          divider: true                                                              },
+  { key: 'editTags',      Icon: Tag,         label: 'Edit tags for selected nodes',     toggle: false },
 ];
 
 const styles = {
@@ -35,12 +38,13 @@ const styles = {
   },
 };
 
-function ActionButton({ Icon, label, onClick, active = false }) {
+function ActionButton({ Icon, label, onClick, active = false, disabled = false }) {
   return (
     <Tooltip label={label} position="right" openDelay={300} withArrow>
       <button
-        onClick={onClick}
+        onClick={disabled ? undefined : onClick}
         aria-label={label}
+        aria-disabled={disabled}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -49,7 +53,8 @@ function ActionButton({ Icon, label, onClick, active = false }) {
           height: 36,
           borderRadius: 6,
           border: 'none',
-          cursor: 'pointer',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          opacity: disabled ? 0.35 : 1,
           background: active
             ? 'var(--mantine-color-blue-7)'
             : 'transparent',
@@ -59,13 +64,13 @@ function ActionButton({ Icon, label, onClick, active = false }) {
           transition: 'background 0.15s, color 0.15s',
         }}
         onMouseEnter={(e) => {
-          if (!active) {
+          if (!active && !disabled) {
             e.currentTarget.style.background = 'var(--mantine-color-dark-6)';
             e.currentTarget.style.color = 'var(--mantine-color-white)';
           }
         }}
         onMouseLeave={(e) => {
-          if (!active) {
+          if (!active && !disabled) {
             e.currentTarget.style.background = 'transparent';
             e.currentTarget.style.color = 'var(--mantine-color-dark-2)';
           }
@@ -77,26 +82,31 @@ function ActionButton({ Icon, label, onClick, active = false }) {
   );
 }
 
-export function ActionBar({ onAddNode, showGrid, onToggleShowGrid, snapMode, onToggleSnapMode, onAutoLayout, hideMaxScore, onToggleHideMaxScore }) {
+export function ActionBar({ onAddNode, showGrid, onToggleShowGrid, snapMode, onToggleSnapMode, onAutoLayout, hideMaxScore, onToggleHideMaxScore, multiSelectCount, onEditTags }) {
   const handlers = {
-    addNode:      { onClick: onAddNode,              active: false         },
-    showGrid:     { onClick: onToggleShowGrid,       active: showGrid      },
-    snap:         { onClick: onToggleSnapMode,       active: snapMode      },
-    tidy:         { onClick: onAutoLayout,           active: false         },
-    hideMastered: { onClick: onToggleHideMaxScore,   active: hideMaxScore  },
+    addNode:      { onClick: onAddNode,              active: false,                        disabled: false                  },
+    showGrid:     { onClick: onToggleShowGrid,       active: showGrid,                     disabled: false                  },
+    snap:         { onClick: onToggleSnapMode,       active: snapMode,                     disabled: false                  },
+    tidy:         { onClick: onAutoLayout,           active: false,                        disabled: false                  },
+    hideMastered: { onClick: onToggleHideMaxScore,   active: hideMaxScore,                 disabled: false                  },
+    editTags:     { onClick: onEditTags,             active: false,                        disabled: multiSelectCount < 1   },
   };
 
   return (
     <div style={styles.bar}>
-      {ACTIONS.map(({ key, Icon, label }) => (
-        <ActionButton
-          key={key}
-          Icon={Icon}
-          label={label}
-          onClick={handlers[key].onClick}
-          active={handlers[key].active}
-        />
-      ))}
+      {ACTIONS.map(({ key, Icon, label, divider }) => {
+        if (divider) return <div key={key} style={styles.divider} />;
+        return (
+          <ActionButton
+            key={key}
+            Icon={Icon}
+            label={label}
+            onClick={handlers[key].onClick}
+            active={handlers[key].active}
+            disabled={handlers[key].disabled}
+          />
+        );
+      })}
     </div>
   );
 }

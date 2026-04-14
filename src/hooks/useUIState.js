@@ -9,6 +9,7 @@ export function useUIState({ canvasRef, skillTreeRef, setConfig }) {
   const [activeTab, setActiveTab] = useState('inspector');
   const [gistModalOpen, setGistModalOpen] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
+  const [bulkTagModalOpen, setBulkTagModalOpen] = useState(false);
 
   const handleAddNode = useCallback(() => {
     const center = canvasRef.current?.getViewportCenter() ?? { x: 200, y: 120 };
@@ -57,6 +58,8 @@ export function useUIState({ canvasRef, skillTreeRef, setConfig }) {
   }, [setConfig, skillTreeRef]);
 
   const handleGistSettings = useCallback(() => setGistModalOpen(true), []);
+  const openBulkTagModal = useCallback(() => setBulkTagModalOpen(true), []);
+  const closeBulkTagModal = useCallback(() => setBulkTagModalOpen(false), []);
   const handleToggleSidebar = useCallback(() => setSidebarOpen((o) => !o), [setSidebarOpen]);
   const handleToggleHideMaxScore = useCallback(() => setHideMaxScore((v) => !v), [setHideMaxScore]);
   const handleToggleShowGrid = useCallback(() => setShowGrid((v) => !v), [setShowGrid]);
@@ -117,5 +120,8 @@ export function useUIState({ canvasRef, skillTreeRef, setConfig }) {
     handleToggleShowGrid,
     snapMode,
     handleToggleSnapMode,
+    bulkTagModalOpen,
+    openBulkTagModal,
+    closeBulkTagModal,
   };
 }

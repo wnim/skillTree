@@ -1,10 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { Toolbar } from './components/Toolbar';
 import { ActionBar } from './components/ActionBar';
 import { Canvas } from './components/Canvas';
 import { Sidebar } from './components/Sidebar';
 import { GistSetupModal } from './components/GistSetupModal';
 import { KeyboardShortcutsHelp } from './components/KeyboardShortcutsHelp';
+import { BulkTagModal } from './components/BulkTagModal';
 import { useSkillTree } from './hooks/useSkillTree';
 import { useGistConfig } from './hooks/useGistConfig';
 import { useUIState } from './hooks/useUIState';
@@ -20,6 +21,21 @@ function App() {
 
   const isFirstTime = !config;
 
+  const effectiveSelectedIds = useMemo(() => {
+    if (skillTree.selectedIds.size > 0) return skillTree.selectedIds;
+    if (skillTree.selectedId) return new Set([skillTree.selectedId]);
+    return new Set();
+  }, [skillTree.selectedIds, skillTree.selectedId]);
+
+  const bulkSelectedNodes = useMemo(
+    () => skillTree.data.nodes.filter((n) => effectiveSelectedIds.has(n.id)),
+    [skillTree.data.nodes, effectiveSelectedIds],
+  );
+
+  const handleBulkTagSave = (toRemove, toAdd) => {
+    skillTree.bulkUpdateTags([...effectiveSelectedIds], toRemove, toAdd);
+  };
+
   return (
     <>
       {ui.shortcutsHelpOpen && <KeyboardShortcutsHelp onClose={() => ui.setShortcutsHelpOpen(false)} />}
@@ -29,6 +45,13 @@ function App() {
         onConfigure={ui.handleGistConfigure}
         initialUrl={config?.gistUrl ?? ''}
         initialToken={config?.token ?? ''}
+      />
+      <BulkTagModal
+        opened={ui.bulkTagModalOpen}
+        onClose={ui.closeBulkTagModal}
+        onSave={handleBulkTagSave}
+        selectedNodes={bulkSelectedNodes}
+        allNodes={skillTree.data.nodes}
       />
       <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
         <Toolbar
@@ -50,6 +73,8 @@ function App() {
             onAutoLayout={skillTree.autoLayout}
             hideMaxScore={ui.hideMaxScore}
             onToggleHideMaxScore={ui.handleToggleHideMaxScore}
+            multiSelectCount={effectiveSelectedIds.size}
+            onEditTags={ui.openBulkTagModal}
           />
           <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
             <Canvas

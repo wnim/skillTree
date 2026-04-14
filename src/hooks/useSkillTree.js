@@ -124,9 +124,11 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
     const nextPrev = new Map();
     const nodes = hideMaxScore ? data.nodes.filter((n) => !hiddenNodeIds.has(n.id)) : data.nodes;
     const result = nodes.map((node) => {
-      const tagColor = node.tags?.[0] ? data.tag_styles[node.tags[0]]?.color ?? '#555' : '#555';
+      const tagColors = node.tags?.map((t) => data.tag_styles[t]?.color ?? '#555') ?? [];
+      const tagColor = tagColors[0] ?? '#555';
+      const tagColorKey = tagColors.join('\0');
       const cached = prev.get(node.id);
-      if (cached && cached.source === node && cached.tagColor === tagColor) {
+      if (cached && cached.source === node && cached.tagColorKey === tagColorKey) {
         nextPrev.set(node.id, cached);
         return cached.wrapper;
       }
@@ -134,9 +136,9 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
         id: node.id,
         type: 'skillNode',
         position: node.position,
-        data: { ...node, tagColor },
+        data: { ...node, tagColor, tagColors },
       };
-      nextPrev.set(node.id, { source: node, tagColor, wrapper });
+      nextPrev.set(node.id, { source: node, tagColorKey, wrapper });
       return wrapper;
     });
     prevFlowNodesRef.current = nextPrev;
@@ -197,6 +199,28 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
       updateData((prev) => ({
         nodes: prev.nodes.map((n) => (n.id === selId ? { ...n, [field]: value } : n)),
       }));
+    },
+    [updateData],
+  );
+
+  const bulkUpdateTags = useCallback(
+    (nodeIds, toRemove, toAdd) => {
+      updateData((prev) => {
+        const idSet = new Set(nodeIds);
+        const newStyles = { ...prev.tag_styles };
+        toAdd.forEach((tag) => {
+          if (!newStyles[tag]) newStyles[tag] = { color: '#888' };
+        });
+        return {
+          nodes: prev.nodes.map((n) => {
+            if (!idSet.has(n.id)) return n;
+            const filtered = n.tags.filter((t) => !toRemove.has(t));
+            const added = toAdd.filter((t) => !filtered.includes(t));
+            return { ...n, tags: [...filtered, ...added] };
+          }),
+          tag_styles: newStyles,
+        };
+      });
     },
     [updateData],
   );
@@ -443,6 +467,7 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
     addEdge,
     deleteEdge,
     updateEdgeType,
+    bulkUpdateTags,
     addTagStyle,
     updateTagStyle,
     removeTagStyle,

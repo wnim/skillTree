@@ -7,11 +7,6 @@ export function Sidebar({ activeTab, onTabChange, skillTree }) {
   const {
     data,
     selectedNode,
-    selectedId,
-    editingId,
-    updateNode,
-    updateEdgeType,
-    deleteNode,
     addTagStyle,
     updateTagStyle,
     removeTagStyle,
@@ -34,11 +29,6 @@ export function Sidebar({ activeTab, onTabChange, skillTree }) {
           <InspectorPanel
             selectedNode={selectedNode}
             edges={data.edges}
-            edgeStyles={data.edge_styles}
-            onUpdateNode={updateNode}
-            onUpdateEdgeType={updateEdgeType}
-            onDeleteNode={deleteNode}
-            readOnly={editingId !== selectedId}
           />
         </ScrollArea>
       </Tabs.Panel>

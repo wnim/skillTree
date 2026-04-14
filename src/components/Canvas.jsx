@@ -128,7 +128,7 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
 
   useEffect(() => {
     const onKeyDown = (e) => {
-      if (e.key === 'Shift') { isShiftHeld.current = true; return; }
+      if (e.key === 'Shift' || e.key === 'Control') { isShiftHeld.current = true; return; }
       if (e.code !== 'Space' || e.repeat) return;
       const tag = document.activeElement?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
@@ -136,7 +136,7 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
       setIsPanMode(true);
     };
     const onKeyUp = (e) => {
-      if (e.key === 'Shift') { isShiftHeld.current = false; return; }
+      if (e.key === 'Shift' || e.key === 'Control') { isShiftHeld.current = false; return; }
       if (e.code !== 'Space') return;
       setIsPanMode(false);
     };
@@ -402,7 +402,7 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
           zoomOnPinch={!isEditing}
           selectionOnDrag={!isPanMode && !isEditing}
           selectionMode={SelectionMode.Partial}
-          multiSelectionKeyCode="Shift"
+          multiSelectionKeyCode={['Shift', 'Control']}
           zoomOnDoubleClick={false}
           fitView={!savedViewport.current}
           proOptions={{ hideAttribution: true }}

@@ -1,68 +1,36 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Stack, TextInput, Textarea, Slider, Select, Text, Button, Group } from '@mantine/core';
+import { useMemo } from 'react';
+import { Stack, Text, Group, Badge } from '@mantine/core';
 import { DEFAULT_EDGE_TYPE } from '../data/defaultData';
 
-export function InspectorPanel({ selectedNode, edges, edgeStyles, onUpdateNode, onUpdateEdgeType, onDeleteNode, readOnly }) {
-  const [tagsRaw, setTagsRaw] = useState('');
-  const [localScore, setLocalScore] = useState(selectedNode?.score ?? 0);
-
-  useEffect(() => {
-    setTagsRaw(selectedNode ? selectedNode.tags.join(', ') : '');
-  }, [selectedNode?.id]);
-
-  useEffect(() => {
-    setLocalScore(selectedNode?.score ?? 0);
-  }, [selectedNode?.id, selectedNode?.score]);
-
+export function InspectorPanel({ selectedNode, edges }) {
   const connectedEdges = useMemo(
     () => edges.filter((e) => e.from === selectedNode?.id || e.to === selectedNode?.id),
     [edges, selectedNode?.id],
   );
 
   if (!selectedNode) {
-    return <Text c="dimmed">Select a node to inspect and edit its details here.</Text>;
+    return <Text c="dimmed">Select a node to inspect its details.</Text>;
   }
 
   return (
-    <Stack gap="md" style={readOnly ? { opacity: 0.45, pointerEvents: 'none' } : undefined}>
-      <TextInput
-        label="Label"
-        value={selectedNode.label}
-        onChange={(e) => onUpdateNode('label', e.currentTarget.value)}
-        readOnly={readOnly}
-      />
-
+    <Stack gap="md">
       <div>
-        <Text size="sm" fw={500} mb={4}>Score</Text>
-        <Slider
-          min={0}
-          max={10}
-          value={localScore}
-          onChange={setLocalScore}
-          onChangeEnd={(val) => onUpdateNode('score', val)}
-          disabled={readOnly || selectedNode.score == null}
-          label={(val) => val}
-          marks={[{ value: 0, label: '0' }, { value: 5, label: '5' }, { value: 10, label: '10' }]}
-          mb="xs"
-        />
+        <Text size="sm" fw={500} mb={2}>Label</Text>
+        <Text>{selectedNode.label}</Text>
       </div>
 
-      <TextInput
-        label="Tags"
-        value={tagsRaw}
-        onChange={(e) => setTagsRaw(e.currentTarget.value)}
-        onBlur={() => onUpdateNode('tags', tagsRaw.split(',').map((t) => t.trim()).filter(Boolean))}
-        placeholder="comma-separated"
-        readOnly={readOnly}
-      />
+      <div>
+        <Text size="sm" fw={500} mb={2}>Score</Text>
+        <Text>{selectedNode.score ?? '—'}</Text>
+      </div>
 
-      <Textarea
-        label="Notes"
-        rows={2}
-        value={selectedNode.notes}
-        onChange={(e) => onUpdateNode('notes', e.currentTarget.value)}
-        readOnly={readOnly}
-      />
+      <div>
+        <Text size="sm" fw={500} mb={2}>Tags</Text>
+        {selectedNode.tags.length === 0
+          ? <Text c="dimmed" size="sm">No tags</Text>
+          : <Group gap="xs">{selectedNode.tags.map((t) => <Badge key={t} variant="light">{t}</Badge>)}</Group>
+        }
+      </div>
 
       <div>
         <Text size="sm" fw={500} mb={4}>Connected edges</Text>
@@ -73,23 +41,12 @@ export function InspectorPanel({ selectedNode, edges, edgeStyles, onUpdateNode, 
             {connectedEdges.map((edge) => (
               <Group key={edge.id} gap="sm">
                 <Text size="sm">{edge.from === selectedNode.id ? '→' : '←'} {edge.id}</Text>
-                <Select
-                  size="xs"
-                  value={edge.type || DEFAULT_EDGE_TYPE}
-                  onChange={(val) => onUpdateEdgeType(edge.id, val)}
-                  data={Object.keys(edgeStyles)}
-                  w={130}
-                  disabled={readOnly}
-                />
+                <Text size="sm" c="dimmed">{edge.type || DEFAULT_EDGE_TYPE}</Text>
               </Group>
             ))}
           </Stack>
         )}
       </div>
-
-      <Button color="red" variant="light" onClick={() => onDeleteNode(selectedNode.id)} disabled={readOnly}>
-        Delete node
-      </Button>
     </Stack>
   );
 }
