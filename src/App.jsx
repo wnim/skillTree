@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { Toolbar } from './components/Toolbar';
 import { Canvas } from './components/Canvas';
 import { Sidebar } from './components/Sidebar';
@@ -6,118 +6,46 @@ import { GistSetupModal } from './components/GistSetupModal';
 import { KeyboardShortcutsHelp } from './components/KeyboardShortcutsHelp';
 import { useSkillTree } from './hooks/useSkillTree';
 import { useGistConfig } from './hooks/useGistConfig';
-import { useLocalStorage } from './hooks/useLocalStorage';
+import { useUIState } from './hooks/useUIState';
 
 function App() {
   const { config, setConfig } = useGistConfig();
-  const [sidebarOpen, setSidebarOpen] = useLocalStorage('psskill_ui_sidebar', false);
-  const [hideMaxScore, setHideMaxScore] = useLocalStorage('psskill_ui_hidemaxscore', false);
-  const skillTree = useSkillTree(config, hideMaxScore);
-  const [activeTab, setActiveTab] = useState('inspector');
-  const [gistModalOpen, setGistModalOpen] = useState(false);
-  const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   const canvasRef = useRef(null);
-  const skillTreeRef = useRef(skillTree);
-  useEffect(() => { skillTreeRef.current = skillTree; });
+  const skillTreeRef = useRef(null);
 
-  const handleAddNode = useCallback(() => {
-    skillTreeRef.current.addNode({ x: 200, y: 120 });
-    setActiveTab('inspector');
-  }, []);
-
-  const handleFitView = useCallback(() => {
-    canvasRef.current?.fitView();
-  }, []);
-
-  const handleImport = useCallback(() => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'application/json';
-    input.onchange = async () => {
-      const file = input.files?.[0];
-      if (!file) return;
-      const text = await file.text();
-      try {
-        skillTreeRef.current.importData(JSON.parse(text));
-      } catch {
-        // invalid file — ignored
-      }
-    };
-    input.click();
-  }, []);
-
-  const openInspector = useCallback(() => {
-    setActiveTab('inspector');
-    setSidebarOpen(true);
-  }, []);
-
-  const handleGistConfigure = useCallback((newConfig, data) => {
-    setConfig(newConfig);
-    skillTreeRef.current.importData(data);
-    setGistModalOpen(false);
-  }, [setConfig]);
-
-  const handleGistSettings = useCallback(() => setGistModalOpen(true), []);
-  const handleToggleSidebar = useCallback(() => setSidebarOpen((o) => !o), [setSidebarOpen]);
-  const handleToggleHideMaxScore = useCallback(() => setHideMaxScore((v) => !v), [setHideMaxScore]);
+  const ui = useUIState({ canvasRef, skillTreeRef, setConfig });
+  const skillTree = useSkillTree(config, ui.hideMaxScore);
+  skillTreeRef.current = skillTree;
 
   const isFirstTime = !config;
 
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      const tag = document.activeElement?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
-      const st = skillTreeRef.current;
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') {
-        st.undo();
-      } else if (
-        ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'z' || e.key === 'Z')) ||
-        ((e.ctrlKey || e.metaKey) && e.key === 'y')
-      ) {
-        st.redo();
-      } else if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
-        st.copyNode();
-      } else if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
-        st.pasteNode();
-      } else if ((e.key === 'Delete' || e.key === 'Backspace') && st.selectedId) {
-        st.deleteNode(st.selectedId);
-      } else if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 't' || e.key === 'T')) {
-        e.preventDefault();
-        st.autoLayout();
-      } else if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'h' || e.key === 'H')) {
-        e.preventDefault();
-        setHideMaxScore((v) => !v);
-      } else if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
-        setShortcutsHelpOpen(o => !o);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
-
   return (
     <>
-      {shortcutsHelpOpen && <KeyboardShortcutsHelp onClose={() => setShortcutsHelpOpen(false)} />}
+      {ui.shortcutsHelpOpen && <KeyboardShortcutsHelp onClose={() => ui.setShortcutsHelpOpen(false)} />}
       <GistSetupModal
-        opened={isFirstTime || gistModalOpen}
-        onClose={isFirstTime ? undefined : () => setGistModalOpen(false)}
-        onConfigure={handleGistConfigure}
+        opened={isFirstTime || ui.gistModalOpen}
+        onClose={isFirstTime ? undefined : () => ui.setGistModalOpen(false)}
+        onConfigure={ui.handleGistConfigure}
         initialUrl={config?.gistUrl ?? ''}
         initialToken={config?.token ?? ''}
       />
       <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
         <Toolbar
-          onAddNode={handleAddNode}
-          onFitView={handleFitView}
+          onAddNode={ui.handleAddNode}
+          onFitView={ui.handleFitView}
           onAutoLayout={skillTree.autoLayout}
           onExport={skillTree.exportData}
-          onImport={handleImport}
+          onImport={ui.handleImport}
           syncStatus={skillTree.syncStatus}
-          onGistSettings={handleGistSettings}
-          onToggleSidebar={handleToggleSidebar}
-          sidebarOpen={sidebarOpen}
-          hideMaxScore={hideMaxScore}
-          onToggleHideMaxScore={handleToggleHideMaxScore}
+          onGistSettings={ui.handleGistSettings}
+          onToggleSidebar={ui.handleToggleSidebar}
+          sidebarOpen={ui.sidebarOpen}
+          hideMaxScore={ui.hideMaxScore}
+          onToggleHideMaxScore={ui.handleToggleHideMaxScore}
+          showGrid={ui.showGrid}
+          onToggleShowGrid={ui.handleToggleShowGrid}
+          snapMode={ui.snapMode}
+          onToggleSnapMode={ui.handleToggleSnapMode}
         />
         <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
           <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
@@ -126,19 +54,21 @@ function App() {
               flowNodes={skillTree.flowNodes}
               flowEdges={skillTree.flowEdges}
               skillTree={skillTree}
-              onOpenInspector={openInspector}
+              onOpenInspector={ui.openInspector}
+              showGrid={ui.showGrid}
+              snapMode={ui.snapMode}
             />
           </div>
           <div style={{
-            width: sidebarOpen ? 320 : 0,
+            width: ui.sidebarOpen ? 320 : 0,
             overflow: 'hidden',
             transition: 'width 0.2s ease',
-            borderLeft: sidebarOpen ? '1px solid var(--mantine-color-dark-5)' : 'none',
+            borderLeft: ui.sidebarOpen ? '1px solid var(--mantine-color-dark-5)' : 'none',
             background: 'var(--mantine-color-dark-8)',
             flexShrink: 0,
           }}>
             <div style={{ width: 320, height: '100%' }}>
-              <Sidebar activeTab={activeTab} onTabChange={setActiveTab} skillTree={skillTree} />
+              <Sidebar activeTab={ui.activeTab} onTabChange={ui.setActiveTab} skillTree={skillTree} />
             </div>
           </div>
         </div>
@@ -148,3 +78,4 @@ function App() {
 }
 
 export default App;
+

@@ -1,6 +1,5 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import {
-  Background,
   Controls,
   ReactFlow,
   ReactFlowProvider,
@@ -13,9 +12,11 @@ import { EditableNode } from './EditableNode';
 import { CustomBezierEdge } from './CustomBezierEdge';
 import { HoverProvider } from './HoverContext';
 import { ContextMenu } from './ContextMenu';
+import { StaggeredBackground } from './StaggeredBackground';
 import { loadViewport, saveViewport } from '../utils/viewport';
+import { snapToGrid } from '../utils/layout';
 
-export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTree, onOpenInspector }, ref) {
+export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTree, onOpenInspector, showGrid, snapMode }, ref) {
   const { addNode, deleteNode, addEdge, deleteEdge, updateNodePosition, updateNodePositions, updateNodeById,
     setSelectedId, setSelectedIds, setEditingId,
     selectedId, selectedIds, editingId } = skillTree;
@@ -30,6 +31,10 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
   const [selectedEdgeId, setSelectedEdgeId] = useState(null);
   const [edgePopupPos, setEdgePopupPos] = useState(null);
   const isShiftHeld = useRef(false);
+  const snapModeRef = useRef(snapMode);
+  useEffect(() => { snapModeRef.current = snapMode; }, [snapMode]);
+  const nodesRef = useRef([]);
+  useEffect(() => { nodesRef.current = nodes; }, [nodes]);
   const selectedIdRef = useRef(selectedId);
   const selectedIdsRef = useRef(selectedIds);
   const savedViewport = useRef(loadViewport());
@@ -75,7 +80,7 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
         ...(selectedIdRef.current ? [selectedIdRef.current] : []),
         ...selectedIdsRef.current,
       ]);
-      let anyChanged = false;
+      let anyChanged = current.length !== enhancedNodes.length;
       const next = enhancedNodes.map((n) => {
         const existing = currentById.get(n.id);
         const shouldBeSelected = selectedSet.has(n.id);
@@ -225,11 +230,19 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
     [setSelectedId, setSelectedIds],
   );
 
-  const handlePaneDoubleClick = useCallback((event) => {
-    const position = projectToFlow({ x: event.clientX, y: event.clientY });
-    addNode(position);
-    onOpenInspector();
-  }, [addNode, onOpenInspector, projectToFlow]);
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const onDblClick = (event) => {
+      if (event.target.closest('.react-flow__node, .react-flow__edge, .react-flow__controls, .react-flow__minimap')) return;
+      const rf = reactFlowRef.current;
+      if (!rf) return;
+      const position = rf.screenToFlowPosition({ x: event.clientX, y: event.clientY });
+      addNode(position);
+    };
+    container.addEventListener('dblclick', onDblClick);
+    return () => container.removeEventListener('dblclick', onDblClick);
+  }, [addNode]);
 
   const handleNodeClick = useCallback((_event, node) => {
     setSelectedId(node.id);
@@ -266,9 +279,28 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
       }
       onNodesChange(changes);
       const settled = changes.filter((c) => c.type === 'position' && c.position && !c.dragging);
-      if (settled.length === 1) {
+      if (settled.length === 0) return;
+
+      if (snapModeRef.current) {
+        // Snap each settled node to the nearest free staggered-grid cell.
+        // nodesRef.current holds the latest ReactFlow nodes (other nodes haven't moved).
+        const snappedUpdates = new Map(
+          settled.map((c) => [c.id, snapToGrid(c.position, nodesRef.current, c.id)])
+        );
+        setNodes((current) =>
+          current.map((n) => {
+            const pos = snappedUpdates.get(n.id);
+            return pos ? { ...n, position: pos } : n;
+          })
+        );
+        if (settled.length === 1) {
+          updateNodePosition(settled[0].id, snappedUpdates.get(settled[0].id));
+        } else {
+          updateNodePositions([...snappedUpdates.entries()].map(([id, position]) => ({ id, position })));
+        }
+      } else if (settled.length === 1) {
         updateNodePosition(settled[0].id, settled[0].position);
-      } else if (settled.length > 1) {
+      } else {
         updateNodePositions(settled.map((c) => ({ id: c.id, position: c.position })));
       }
     },
@@ -303,9 +335,8 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
   const handleContextAddNode = useCallback(() => {
     const position = projectToFlow(lastPaneClick);
     addNode(position);
-    onOpenInspector();
     setContextMenu(null);
-  }, [addNode, lastPaneClick, onOpenInspector, projectToFlow]);
+  }, [addNode, lastPaneClick, projectToFlow]);
 
   const handleContextEdit = useCallback(() => {
     if (contextMenu?.nodeId) {
@@ -325,7 +356,13 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
     reactFlowInstance?.fitView({ padding: 0.15 });
   }, [reactFlowInstance]);
 
-  useImperativeHandle(ref, () => ({ fitView }), [fitView]);
+  const getViewportCenter = useCallback(() => {
+    if (!reactFlowInstance || !containerRef.current) return { x: 200, y: 120 };
+    const { left, top, width, height } = containerRef.current.getBoundingClientRect();
+    return reactFlowInstance.screenToFlowPosition({ x: left + width / 2, y: top + height / 2 });
+  }, [reactFlowInstance]);
+
+  useImperativeHandle(ref, () => ({ fitView, getViewportCenter }), [fitView, getViewportCenter]);
 
   return (
     <HoverProvider>
@@ -341,7 +378,6 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
           onNodeClick={handleNodeClick}
           onNodeDoubleClick={handleNodeDoubleClick}
           onPaneClick={handlePaneClick}
-          onPaneDoubleClick={handlePaneDoubleClick}
           onConnect={handleConnect}
           onNodesChange={handleNodesChange}
           onEdgesChange={onEdgesChange}
@@ -363,7 +399,7 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
           fitView={!savedViewport.current}
           proOptions={{ hideAttribution: true }}
         >
-          <Background gap={16} color="#222" />
+          {showGrid && <StaggeredBackground />}
           <Controls />
         </ReactFlow>
       </ReactFlowProvider>
