@@ -20,6 +20,14 @@ export function useUIState({ canvasRef, skillTreeRef, setConfig }) {
     canvasRef.current?.fitView();
   }, [canvasRef]);
 
+  const handleZoomIn = useCallback(() => {
+    canvasRef.current?.zoomIn();
+  }, [canvasRef]);
+
+  const handleZoomOut = useCallback(() => {
+    canvasRef.current?.zoomOut();
+  }, [canvasRef]);
+
   const handleImport = useCallback(() => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -98,6 +106,8 @@ export function useUIState({ canvasRef, skillTreeRef, setConfig }) {
     setShortcutsHelpOpen,
     handleAddNode,
     handleFitView,
+    handleZoomIn,
+    handleZoomOut,
     handleImport,
     openInspector,
     handleGistConfigure,

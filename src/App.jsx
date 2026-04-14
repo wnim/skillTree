@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Toolbar } from './components/Toolbar';
+import { ActionBar } from './components/ActionBar';
 import { Canvas } from './components/Canvas';
 import { Sidebar } from './components/Sidebar';
 import { GistSetupModal } from './components/GistSetupModal';
@@ -31,23 +32,25 @@ function App() {
       />
       <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
         <Toolbar
-          onAddNode={ui.handleAddNode}
           onFitView={ui.handleFitView}
-          onAutoLayout={skillTree.autoLayout}
           onExport={skillTree.exportData}
           onImport={ui.handleImport}
           syncStatus={skillTree.syncStatus}
           onGistSettings={ui.handleGistSettings}
           onToggleSidebar={ui.handleToggleSidebar}
           sidebarOpen={ui.sidebarOpen}
-          hideMaxScore={ui.hideMaxScore}
-          onToggleHideMaxScore={ui.handleToggleHideMaxScore}
-          showGrid={ui.showGrid}
-          onToggleShowGrid={ui.handleToggleShowGrid}
-          snapMode={ui.snapMode}
-          onToggleSnapMode={ui.handleToggleSnapMode}
         />
         <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+          <ActionBar
+            onAddNode={ui.handleAddNode}
+            showGrid={ui.showGrid}
+            onToggleShowGrid={ui.handleToggleShowGrid}
+            snapMode={ui.snapMode}
+            onToggleSnapMode={ui.handleToggleSnapMode}
+            onAutoLayout={skillTree.autoLayout}
+            hideMaxScore={ui.hideMaxScore}
+            onToggleHideMaxScore={ui.handleToggleHideMaxScore}
+          />
           <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
             <Canvas
               ref={canvasRef}
