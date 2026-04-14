@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Modal, Stack, Group, Badge, TextInput, Button, Text } from '@mantine/core';
 import { X } from 'lucide-react';
 
-export function BulkTagModal({ opened, onClose, onSave, selectedNodes, allNodes }) {
+export function BulkTagModal({ opened, onClose, onSave, selectedNodes, allNodes, tagStyles = {} }) {
   const [toRemove, setToRemove] = useState(() => new Set());
   const [toAdd, setToAdd] = useState([]);
   const [inputValue, setInputValue] = useState('');
@@ -42,9 +42,11 @@ export function BulkTagModal({ opened, onClose, onSave, selectedNodes, allNodes 
       .map(([tag]) => tag);
   }, [allNodes]);
 
+  const alreadyOnAll = (t) => !toRemove.has(t) && commonTags.has(t);
+
   const commitInput = (value = inputValue) => {
     const parts = value.split(',').map((s) => s.trim()).filter(Boolean);
-    const newTags = parts.filter((t) => !toAdd.includes(t) && !visibleExistingTags.includes(t));
+    const newTags = parts.filter((t) => !toAdd.includes(t) && !alreadyOnAll(t));
     if (newTags.length > 0) setToAdd((prev) => [...prev, ...newTags]);
     setInputValue('');
   };
@@ -59,11 +61,12 @@ export function BulkTagModal({ opened, onClose, onSave, selectedNodes, allNodes 
   const handleSave = () => {
     // Commit any pending input before saving (avoids stale-state timing issues)
     const pendingParts = inputValue.split(',').map((s) => s.trim()).filter(Boolean);
-    const currentVisible = unionTags.filter((t) => !toRemove.has(t));
-    const pendingNew = pendingParts.filter((t) => !toAdd.includes(t) && !currentVisible.includes(t));
+    const pendingNew = pendingParts.filter((t) => !toAdd.includes(t) && !alreadyOnAll(t));
     onSave(toRemove, [...toAdd, ...pendingNew]);
     onClose();
   };
+
+  const tagColor = (t) => tagStyles[t]?.color ?? null;
 
   const hasAnyChips = visibleExistingTags.length > 0 || toAdd.length > 0;
 
@@ -76,7 +79,7 @@ export function BulkTagModal({ opened, onClose, onSave, selectedNodes, allNodes 
               Tags on {selectedNodes?.length ?? 0} selected nodes
             </Text>
             <Text size="xs" c="dimmed">
-              Filled = all nodes · Outlined = some nodes · Teal = new
+              Filled = all nodes · Outlined = some nodes · Dashed = new unstyled
             </Text>
           </Group>
 
@@ -86,6 +89,7 @@ export function BulkTagModal({ opened, onClose, onSave, selectedNodes, allNodes 
                 <Badge
                   key={tag}
                   variant={commonTags.has(tag) ? 'filled' : 'outline'}
+                  color={tagColor(tag) ?? undefined}
                   style={{ cursor: 'default', paddingRight: 4 }}
                   rightSection={
                     <X
@@ -102,8 +106,8 @@ export function BulkTagModal({ opened, onClose, onSave, selectedNodes, allNodes 
                 <Badge
                   key={`new-${tag}`}
                   variant="filled"
-                  color="teal"
-                  style={{ cursor: 'default', paddingRight: 4 }}
+                  color={tagColor(tag) ?? 'teal'}
+                  style={{ cursor: 'default', paddingRight: 4, outline: tagColor(tag) ? undefined : '2px dashed var(--mantine-color-teal-5)', outlineOffset: -2 }}
                   rightSection={
                     <X
                       size={11}
@@ -133,7 +137,7 @@ export function BulkTagModal({ opened, onClose, onSave, selectedNodes, allNodes 
 
         {popularTags.length > 0 && (() => {
           const addableSuggestions = popularTags.filter(
-            (t) => !visibleExistingTags.includes(t) && !toAdd.includes(t),
+            (t) => !toAdd.includes(t) && !alreadyOnAll(t),
           );
           if (addableSuggestions.length === 0) return null;
           return (
@@ -144,6 +148,7 @@ export function BulkTagModal({ opened, onClose, onSave, selectedNodes, allNodes 
                   <Badge
                     key={tag}
                     variant="dot"
+                    color={tagColor(tag) ?? undefined}
                     style={{ cursor: 'pointer' }}
                     onClick={() => setToAdd((prev) => [...prev, tag])}
                   >

@@ -18,8 +18,8 @@ import { snapToGrid } from '../utils/layout';
 
 export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTree, onOpenInspector, showGrid, snapMode }, ref) {
   const { addNode, deleteNode, addEdge, deleteEdge, updateNodePosition, updateNodePositions, updateNodeById,
-    setSelectedId, setSelectedIds, setEditingId,
-    selectedId, selectedIds, editingId } = skillTree;
+    setSelectedIds, setEditingId,
+    selectedIds, editingId } = skillTree;
   const isEditing = editingId != null;
 
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -35,7 +35,6 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
   useEffect(() => { snapModeRef.current = snapMode; }, [snapMode]);
   const nodesRef = useRef([]);
   useEffect(() => { nodesRef.current = nodes; }, [nodes]);
-  const selectedIdRef = useRef(selectedId);
   const selectedIdsRef = useRef(selectedIds);
   const savedViewport = useRef(loadViewport());
   const containerRef = useRef(null);
@@ -76,10 +75,7 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
     nodeSourceRef.current = new Map(enhancedNodes.map((n) => [n.id, n]));
     setNodes((current) => {
       const currentById = new Map(current.map((n) => [n.id, n]));
-      const selectedSet = new Set([
-        ...(selectedIdRef.current ? [selectedIdRef.current] : []),
-        ...selectedIdsRef.current,
-      ]);
+      const selectedSet = selectedIdsRef.current;
       let anyChanged = current.length !== enhancedNodes.length;
       const next = enhancedNodes.map((n) => {
         const existing = currentById.get(n.id);
@@ -95,23 +91,19 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
   }, [enhancedNodes]);
 
   // Selection-only sync: fires when selection changes but the graph is unchanged.
-  // Creates new objects only for the 1-2 nodes whose `selected` flag actually flipped.
+  // Creates new objects only for nodes whose `selected` flag actually flipped.
   useEffect(() => {
-    const selectedSet = new Set([
-      ...(selectedId ? [selectedId] : []),
-      ...selectedIds,
-    ]);
     setNodes((current) => {
       let changed = false;
       const next = current.map((n) => {
-        const shouldBe = selectedSet.has(n.id);
+        const shouldBe = selectedIds.has(n.id);
         if (n.selected === shouldBe) return n;
         changed = true;
         return { ...n, selected: shouldBe };
       });
       return changed ? next : current;
     });
-  }, [selectedId, selectedIds]);
+  }, [selectedIds]);
 
   // Edge sync: fires when edge data or the selected edge changes.
   useEffect(() => {
@@ -122,8 +114,7 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
     ));
   }, [flowEdges, selectedEdgeId]);
 
-  // Keep refs in sync so handleSelectionChange always sees fresh values
-  useEffect(() => { selectedIdRef.current = selectedId; }, [selectedId]);
+  // Keep ref in sync so handleSelectionChange always sees fresh values
   useEffect(() => { selectedIdsRef.current = selectedIds; }, [selectedIds]);
 
   useEffect(() => {
@@ -190,21 +181,16 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
   }, [selectedEdgeId, clearSelectedEdge]);
 
   const handlePaneClick = useCallback(() => {
-    setSelectedId(null);
-    // Only create a new Set if the current one is non-empty — avoids spurious Effect B runs
-    // (and the associated phantom setNodes calls) on every click.
     setSelectedIds((prev) => (prev.size === 0 ? prev : new Set()));
     setEditingId(null);
     setContextMenu(null);
     clearSelectedEdge();
-  }, [setSelectedId, setSelectedIds, setEditingId, clearSelectedEdge]);
+  }, [setSelectedIds, setEditingId, clearSelectedEdge]);
 
   const handleSelectionChange = useCallback(
     ({ nodes: selectedNodes }) => {
       const incomingIds = new Set(selectedNodes.map((n) => n.id));
-      const currentSingle = selectedIdRef.current;
-      const currentMulti = selectedIdsRef.current;
-      const currentAll = new Set([...(currentSingle ? [currentSingle] : []), ...currentMulti]);
+      const currentAll = selectedIdsRef.current;
 
       let nextAll;
       if (isShiftHeld.current) {
@@ -217,17 +203,9 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
       // Content equality check — avoid triggering re-renders for identical selections
       if (nextAll.size === currentAll.size && [...nextAll].every((id) => currentAll.has(id))) return;
 
-      if (nextAll.size === 0) {
-        setSelectedIds(new Set());
-      } else if (nextAll.size === 1) {
-        setSelectedId([...nextAll][0]);
-        setSelectedIds(new Set());
-      } else {
-        setSelectedId(null);
-        setSelectedIds(nextAll);
-      }
+      setSelectedIds(nextAll);
     },
-    [setSelectedId, setSelectedIds],
+    [setSelectedIds],
   );
 
   useEffect(() => {
@@ -245,16 +223,16 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
   }, [addNode]);
 
   const handleNodeClick = useCallback((_event, node) => {
-    setSelectedId(node.id);
+    setSelectedIds(new Set([node.id]));
     clearSelectedEdge();
     // Don't exit editing if the user clicked inside the already-editing node
     if (editingId !== node.id) setEditingId(null);
-  }, [setSelectedId, setEditingId, clearSelectedEdge, editingId]);
+  }, [setSelectedIds, setEditingId, clearSelectedEdge, editingId]);
 
   const handleNodeDoubleClick = useCallback((_event, node) => {
-    setSelectedId(node.id);
+    setSelectedIds(new Set([node.id]));
     setEditingId(node.id);
-  }, [setSelectedId, setEditingId]);
+  }, [setSelectedIds, setEditingId]);
 
   const handleConnect = useCallback(
     (params) => addEdge(params.source, params.target),
@@ -267,10 +245,7 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
       // as a new drag-selection starts. Without this, the select:false events emitted at drag
       // start would strip the visual selection before handleSelectionChange can union them back.
       if (isShiftHeld.current) {
-        const currentAll = new Set([
-          ...(selectedIdRef.current ? [selectedIdRef.current] : []),
-          ...selectedIdsRef.current,
-        ]);
+        const currentAll = selectedIdsRef.current;
         changes = changes.map((c) =>
           c.type === 'select' && !c.selected && currentAll.has(c.id)
             ? { ...c, selected: true }
@@ -309,9 +284,9 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
 
   const handleNodeContextMenu = useCallback((event, node) => {
     event.preventDefault();
-    setSelectedId(node.id);
+    setSelectedIds(new Set([node.id]));
     setContextMenu({ x: event.clientX, y: event.clientY, type: 'node', nodeId: node.id });
-  }, [setSelectedId]);
+  }, [setSelectedIds]);
 
   const handleEdgeContextMenu = useCallback((event, edge) => {
     event.preventDefault();
@@ -340,12 +315,12 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
 
   const handleContextEdit = useCallback(() => {
     if (contextMenu?.nodeId) {
-      setSelectedId(contextMenu.nodeId);
+      setSelectedIds(new Set([contextMenu.nodeId]));
       setEditingId(contextMenu.nodeId);
       onOpenInspector();
     }
     setContextMenu(null);
-  }, [contextMenu, setSelectedId, setEditingId, onOpenInspector]);
+  }, [contextMenu, setSelectedIds, setEditingId, onOpenInspector]);
 
   const handleContextDelete = useCallback(() => {
     if (contextMenu?.nodeId) deleteNode(contextMenu.nodeId);

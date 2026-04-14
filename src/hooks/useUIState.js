@@ -81,8 +81,8 @@ export function useUIState({ canvasRef, skillTreeRef, setConfig }) {
         st.copyNode();
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
         st.pasteNode();
-      } else if ((e.key === 'Delete' || e.key === 'Backspace') && st.selectedId) {
-        st.deleteNode(st.selectedId);
+      } else if ((e.key === 'Delete' || e.key === 'Backspace') && st.selectedIds.size === 1) {
+        st.deleteNode([...st.selectedIds][0]);
       } else if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 't' || e.key === 'T')) {
         e.preventDefault();
         st.autoLayout();

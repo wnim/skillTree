@@ -4,15 +4,14 @@ import { Paper, Text, Progress } from '@mantine/core';
 import { scoreColor } from '../utils/score';
 import { HoverSetContext } from './HoverContext';
 
-// Approximate node perimeter; used to size each color segment (~50px each)
-const PERIMETER = 2 * (180 + 42);
-const SEGMENT_ANGLE = (50 / PERIMETER) * 360;
 
 function buildGradientBorder(tagColors) {
-  const stops = tagColors.map((c, i) =>
-    `${c} ${i * SEGMENT_ANGLE}deg ${(i + 1) * SEGMENT_ANGLE}deg`
-  ).join(', ');
-  return `repeating-conic-gradient(${stops})`;
+  const n = tagColors.length;
+  const segmentAngle = 360 / n;
+  const stops = tagColors.map((color, i) =>
+    `${color} ${i * segmentAngle}deg ${(i + 1) * segmentAngle}deg`
+  );
+  return `conic-gradient(${stops.join(', ')})`;
 }
 
 export const SkillNode = memo(function SkillNode({ id, data, selected }) {

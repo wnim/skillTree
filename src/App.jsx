@@ -21,19 +21,13 @@ function App() {
 
   const isFirstTime = !config;
 
-  const effectiveSelectedIds = useMemo(() => {
-    if (skillTree.selectedIds.size > 0) return skillTree.selectedIds;
-    if (skillTree.selectedId) return new Set([skillTree.selectedId]);
-    return new Set();
-  }, [skillTree.selectedIds, skillTree.selectedId]);
-
   const bulkSelectedNodes = useMemo(
-    () => skillTree.data.nodes.filter((n) => effectiveSelectedIds.has(n.id)),
-    [skillTree.data.nodes, effectiveSelectedIds],
+    () => skillTree.data.nodes.filter((n) => skillTree.selectedIds.has(n.id)),
+    [skillTree.data.nodes, skillTree.selectedIds],
   );
 
   const handleBulkTagSave = (toRemove, toAdd) => {
-    skillTree.bulkUpdateTags([...effectiveSelectedIds], toRemove, toAdd);
+    skillTree.bulkUpdateTags([...skillTree.selectedIds], toRemove, toAdd);
   };
 
   return (
@@ -52,6 +46,7 @@ function App() {
         onSave={handleBulkTagSave}
         selectedNodes={bulkSelectedNodes}
         allNodes={skillTree.data.nodes}
+        tagStyles={skillTree.data.tag_styles}
       />
       <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
         <Toolbar
@@ -73,7 +68,7 @@ function App() {
             onAutoLayout={skillTree.autoLayout}
             hideMaxScore={ui.hideMaxScore}
             onToggleHideMaxScore={ui.handleToggleHideMaxScore}
-            multiSelectCount={effectiveSelectedIds.size}
+            multiSelectCount={skillTree.selectedIds.size}
             onEditTags={ui.openBulkTagModal}
           />
           <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>

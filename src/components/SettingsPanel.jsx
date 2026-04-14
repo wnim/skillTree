@@ -1,4 +1,96 @@
-import { Stack, Group, Text, Button, ColorInput, Select, Paper, Title } from '@mantine/core';
+import { useState } from 'react';
+import { Stack, Group, Text, Button, ColorInput, ColorSwatch, Select, Paper, Title, Popover, Anchor, Divider } from '@mantine/core';
+
+// Curated palette: one swatch per hue family, tuned for contrast on dark backgrounds
+const THEME_SWATCHES = [
+  '#4A90D9', // blue
+  '#20C997', // teal
+  '#51CF66', // green
+  '#94D82D', // lime
+  '#FAB005', // amber
+  '#FF922B', // orange
+  '#FF6B6B', // red
+  '#F06595', // pink
+  '#CC5DE8', // purple
+  '#868E96', // neutral gray
+];
+
+function TagColorPicker({ value, onChange }) {
+  const [opened, setOpened] = useState(false);
+  const [showCustom, setShowCustom] = useState(false);
+
+  const isCustom = Boolean(value) && !THEME_SWATCHES.some(
+    (s) => s.toLowerCase() === value.toLowerCase(),
+  );
+
+  const handleOpen = () => {
+    setShowCustom(isCustom);
+    setOpened(true);
+  };
+
+  return (
+    <Popover
+      opened={opened}
+      onClose={() => setOpened(false)}
+      width={186}
+      position="bottom-end"
+      withArrow
+      shadow="md"
+    >
+      <Popover.Target>
+        <ColorSwatch
+          color={value || '#888888'}
+          size={24}
+          style={{ cursor: 'pointer', flexShrink: 0 }}
+          onClick={handleOpen}
+        />
+      </Popover.Target>
+      <Popover.Dropdown>
+        <Stack gap="xs">
+          <Text size="xs" c="dimmed" fw={500}>Theme colors</Text>
+          <Group gap={6} wrap="wrap">
+            {THEME_SWATCHES.map((color) => (
+              <ColorSwatch
+                key={color}
+                color={color}
+                size={22}
+                style={{
+                  cursor: 'pointer',
+                  outline: isCustom ? 'none' : value?.toLowerCase() === color.toLowerCase()
+                    ? '2px solid var(--mantine-color-white)'
+                    : 'none',
+                  outlineOffset: 2,
+                  borderRadius: 4,
+                }}
+                onClick={() => {
+                  onChange(color);
+                  setOpened(false);
+                }}
+              />
+            ))}
+          </Group>
+          <Divider />
+          {showCustom ? (
+            <ColorInput
+              size="xs"
+              value={value}
+              onChange={onChange}
+            />
+          ) : (
+            <Anchor
+              size="xs"
+              c="dimmed"
+              style={{ cursor: 'pointer' }}
+              onClick={() => setShowCustom(true)}
+            >
+              Custom color…
+            </Anchor>
+          )}
+        </Stack>
+      </Popover.Dropdown>
+    </Popover>
+  );
+}
 
 export function SettingsPanel({
   tagStyles,
@@ -35,11 +127,9 @@ export function SettingsPanel({
               <Group key={tag} justify="space-between">
                 <Text size="sm">{tag}</Text>
                 <Group gap="xs">
-                  <ColorInput
-                    size="xs"
+                  <TagColorPicker
                     value={style.color}
                     onChange={(color) => onUpdateTagStyle(tag, color)}
-                    w={120}
                   />
                   <Button size="xs" variant="default" onClick={() => onRemoveTagStyle(tag)}>Remove</Button>
                 </Group>

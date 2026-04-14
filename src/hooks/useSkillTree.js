@@ -83,13 +83,10 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
   // Keyed by node id → { source (data node ref), tagColor, wrapper (ReactFlow node object) }
   const prevFlowNodesRef = useRef(EMPTY_MAP);
 
-  const [selectedId, setSelectedId] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
 
   // Refs for reading current values inside stable callbacks without capturing them as deps
-  const selectedIdRef = useRef(selectedId);
-  useEffect(() => { selectedIdRef.current = selectedId; }, [selectedId]);
   const selectedIdsRef = useRef(selectedIds);
   useEffect(() => { selectedIdsRef.current = selectedIds; }, [selectedIds]);
   const clipboardRef = useRef(clipboard);
@@ -107,8 +104,8 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
   }, []);
 
   const selectedNode = useMemo(
-    () => data.nodes.find((n) => n.id === selectedId) ?? null,
-    [data.nodes, selectedId],
+    () => selectedIds.size === 1 ? (data.nodes.find((n) => n.id === [...selectedIds][0]) ?? null) : null,
+    [data.nodes, selectedIds],
   );
 
   const hiddenNodeIds = useMemo(
@@ -162,6 +159,7 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
       const id = `node_${Date.now()}`;
       const newNode = { id, label: 'New Trick', score: null, tags: [], notes: '', position };
       updateData((prev) => ({ nodes: [...prev.nodes, newNode] }));
+      setSelectedIds(new Set([id]));
       setEditingId(id);
       return id;
     },
@@ -174,14 +172,14 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
         nodes: prev.nodes.filter((n) => n.id !== nodeId),
         edges: prev.edges.filter((e) => e.from !== nodeId && e.to !== nodeId),
       }));
-      if (selectedIdRef.current === nodeId) setSelectedId(null);
+      setSelectedIds((prev) => { if (!prev.has(nodeId)) return prev; const next = new Set(prev); next.delete(nodeId); return next; });
     },
     [updateData],
   );
 
   const updateNode = useCallback(
     (field, value) => {
-      const selId = selectedIdRef.current;
+      const selId = selectedIdsRef.current.size === 1 ? [...selectedIdsRef.current][0] : null;
       if (!selId) return;
       if (field === 'tags') {
         updateData((prev) => {
@@ -268,18 +266,10 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
 
   const copyNode = useCallback(() => {
     const selIds = selectedIdsRef.current;
-    const selId = selectedIdRef.current;
-    let idsToCopy;
-    if (selIds.size > 1) {
-      idsToCopy = selIds;
-    } else if (selId) {
-      idsToCopy = new Set([selId]);
-    } else {
-      return;
-    }
+    if (selIds.size === 0) return;
     const currentData = dataRef.current;
-    const nodes = currentData.nodes.filter((n) => idsToCopy.has(n.id));
-    const edges = currentData.edges.filter((e) => idsToCopy.has(e.from) && idsToCopy.has(e.to));
+    const nodes = currentData.nodes.filter((n) => selIds.has(n.id));
+    const edges = currentData.edges.filter((e) => selIds.has(e.from) && selIds.has(e.to));
     setClipboard({ nodes, edges });
   }, []);
 
@@ -304,15 +294,9 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
       edges: [...prev.edges, ...newEdges],
     }));
     const newIds = newNodes.map((n) => n.id);
-    if (newIds.length === 1) {
-      setSelectedId(newIds[0]);
-      setSelectedIds(new Set());
-    } else {
-      setSelectedId(null);
-      setSelectedIds(new Set(newIds));
-    }
+    setSelectedIds(new Set(newIds));
     setClipboard({ nodes: newNodes, edges: newEdges });
-  }, [updateData, setSelectedId, setSelectedIds]);
+  }, [updateData, setSelectedIds]);
 
   // --- Edge actions ---
 
@@ -445,8 +429,6 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
   return {
     data,
     syncStatus,
-    selectedId,
-    setSelectedId,
     selectedIds,
     setSelectedIds,
     editingId,
