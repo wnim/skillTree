@@ -350,7 +350,13 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
     reactFlowInstance?.zoomOut({ duration: 200 });
   }, [reactFlowInstance]);
 
-  useImperativeHandle(ref, () => ({ fitView, getViewportCenter, zoomIn, zoomOut }), [fitView, getViewportCenter, zoomIn, zoomOut]);
+  const panBy = useCallback((dx, dy) => {
+    if (!reactFlowInstance) return;
+    const { x, y, zoom } = reactFlowInstance.getViewport();
+    reactFlowInstance.setViewport({ x: x + dx, y: y + dy, zoom });
+  }, [reactFlowInstance]);
+
+  useImperativeHandle(ref, () => ({ fitView, getViewportCenter, zoomIn, zoomOut, panBy }), [fitView, getViewportCenter, zoomIn, zoomOut, panBy]);
 
   return (
     <HoverProvider>

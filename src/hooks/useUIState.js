@@ -91,10 +91,17 @@ export function useUIState({ canvasRef, skillTreeRef, setConfig }) {
         setHideMaxScore((v) => !v);
       } else if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
         setShortcutsHelpOpen((o) => !o);
+      } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        const step = e.shiftKey ? 200 : 50;
+        const dx = e.key === 'ArrowLeft' ? step : e.key === 'ArrowRight' ? -step : 0;
+        const dy = e.key === 'ArrowUp' ? step : e.key === 'ArrowDown' ? -step : 0;
+        canvasRef.current?.panBy(dx, dy);
+        e.preventDefault();
+        e.stopPropagation();
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [skillTreeRef, setHideMaxScore]);
 
   return {
