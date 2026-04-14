@@ -1,12 +1,14 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import {
   Controls,
+  MiniMap,
   ReactFlow,
   ReactFlowProvider,
   SelectionMode,
   useNodesState,
   useEdgesState,
 } from '@xyflow/react';
+import { ArrowDownRight, Map as MapIcon } from 'lucide-react';
 import { SkillNode } from './SkillNode';
 import { EditableNode } from './EditableNode';
 import { CustomBezierEdge } from './CustomBezierEdge';
@@ -15,6 +17,7 @@ import { ContextMenu } from './ContextMenu';
 import { StaggeredBackground } from './StaggeredBackground';
 import { loadViewport, saveViewport } from '../utils/viewport';
 import { snapToGrid } from '../utils/layout';
+import { scoreColor } from '../utils/score';
 
 export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTree, onOpenInspector, showGrid, snapMode }, ref) {
   const { addNode, deleteNode, addEdge, deleteEdge, updateNodePosition, updateNodePositions, updateNodeById,
@@ -30,6 +33,8 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
   const [isPanMode, setIsPanMode] = useState(false);
   const [selectedEdgeId, setSelectedEdgeId] = useState(null);
   const [edgePopupPos, setEdgePopupPos] = useState(null);
+  const [minimapOpen, setMinimapOpen] = useState(true);
+  const [minimapToggled, setMinimapToggled] = useState(false);
   const isShiftHeld = useRef(false);
   const snapModeRef = useRef(snapMode);
   useEffect(() => { snapModeRef.current = snapMode; }, [snapMode]);
@@ -384,8 +389,37 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
         >
           {showGrid && <StaggeredBackground />}
           <Controls />
+          <MiniMap
+            nodeColor={(node) => scoreColor(node.data?.score ?? null)}
+            nodeStrokeWidth={3}
+            pannable
+            zoomable
+            maskColor="rgba(0,0,0,0.6)"
+            className={!minimapToggled ? undefined : (minimapOpen ? 'minimap-map--opening' : 'minimap-map--closing')}
+            style={{ width: 240, height: 160 }}
+          />
         </ReactFlow>
       </ReactFlowProvider>
+
+      {/* minimap toggle buttons — overlaid outside ReactFlow to avoid Panel positioning conflicts */}
+      <div className="minimap-overlay">
+        <button
+          className="minimap-toggle minimap-toggle--collapse"
+          style={{ opacity: minimapOpen ? 1 : 0, pointerEvents: minimapOpen ? 'auto' : 'none' }}
+          onClick={() => { setMinimapToggled(true); setMinimapOpen(false); }}
+          title="Collapse minimap"
+        >
+          <ArrowDownRight size={12} />
+        </button>
+        <button
+          className="minimap-toggle minimap-toggle--expand"
+          style={{ opacity: minimapOpen ? 0 : 1, pointerEvents: minimapOpen ? 'none' : 'auto' }}
+          onClick={() => { setMinimapToggled(true); setMinimapOpen(true); }}
+          title="Show minimap"
+        >
+          <MapIcon size={16} />
+        </button>
+      </div>
 
       <ContextMenu
         contextMenu={contextMenu}

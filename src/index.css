@@ -32,3 +32,94 @@ body {
 .react-flow__pane:active {
   cursor: grabbing;
 }
+
+@keyframes minimap-close {
+  0%   { transform: scaleX(1) scaleY(1); opacity: 1; }
+  38%  { transform: scaleX(1) scaleY(0.03); opacity: 1; }
+  57%  { transform: scaleX(1) scaleY(0.03); opacity: 0.8; }
+  100% { transform: scaleX(0) scaleY(0.03); opacity: 0; }
+}
+
+@keyframes minimap-open {
+  0%   { transform: scaleX(0) scaleY(0.03); opacity: 0; }
+  43%  { transform: scaleX(1) scaleY(0.03); opacity: 0.8; }
+  62%  { transform: scaleX(1) scaleY(0.03); opacity: 0.8; }
+  100% { transform: scaleX(1) scaleY(1); opacity: 1; }
+}
+
+.react-flow__minimap {
+  background: rgba(30, 30, 40, 0.55);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  overflow: hidden;
+  transform-origin: bottom right;
+}
+
+.minimap-map--closing {
+  animation: minimap-close 0.45s ease-in-out forwards;
+  pointer-events: none;
+}
+
+.minimap-map--opening {
+  animation: minimap-open 0.45s ease-in-out forwards;
+}
+
+.react-flow__minimap-mask {
+  fill: rgba(10, 10, 20, 0.4);
+}
+
+.react-flow__minimap-node {
+  stroke: none;
+}
+
+.minimap-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.6);
+  border-radius: 4px;
+  padding: 0;
+  line-height: 1;
+  transition: background 0.15s ease, color 0.15s ease, opacity 0.2s ease;
+}
+
+.minimap-toggle:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.minimap-toggle--collapse {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  pointer-events: auto;
+  width: 20px;
+  height: 20px;
+  z-index: 10;
+}
+
+.minimap-toggle--expand {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 32px;
+  height: 32px;
+  backdrop-filter: blur(6px);
+  background: rgba(30, 30, 40, 0.65);
+  border-radius: 6px;
+}
+
+/* sits exactly over the React Flow minimap (bottom:10px right:10px is RF default) */
+.minimap-overlay {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  width: 240px;
+  height: 160px;
+  pointer-events: none;
+  z-index: 5;
+}
