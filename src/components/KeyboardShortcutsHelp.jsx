@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
-import { Paper, Text, Stack, Group, Kbd } from '@mantine/core';
+import { Paper, Text, Stack, Group, Kbd, Divider } from '@mantine/core';
 
-const SHORTCUTS = [
+const KEYBOARD_SHORTCUTS = [
   { keys: ['?'], description: 'Show this help' },
   { keys: ['Ctrl', 'Z'], description: 'Undo' },
   { keys: ['Ctrl', 'Shift', 'Z'], description: 'Redo' },
@@ -9,8 +9,40 @@ const SHORTCUTS = [
   { keys: ['Ctrl', 'V'], description: 'Paste node' },
   { keys: ['Delete'], description: 'Delete selected node' },
   { keys: ['Ctrl', 'Alt', 'T'], description: 'Auto layout' },
-  { keys: ['Ctrl', 'Alt', 'H'], description: 'Toggle hide mastered nodes (score 10/10)' },
+  { keys: ['Ctrl', 'Alt', 'H'], description: 'Toggle hide mastered nodes' },
+  { keys: ['Space'], description: 'Hold to enter pan mode (then drag)' },
+  { keys: ['↑', '↓', '←', '→'], description: 'Pan canvas' },
+  { keys: ['Shift', '↑↓←→'], description: 'Pan canvas (faster)' },
 ];
+
+const MOUSE_ACTIONS = [
+  { gesture: 'Scroll', description: 'Pan canvas (any direction)' },
+  { gesture: 'Ctrl + Scroll', description: 'Zoom in / out' },
+  { gesture: 'Drag (empty area)', description: 'Select area' },
+  { gesture: 'Space + Drag', description: 'Pan canvas' },
+];
+
+function ShortcutRow({ keys, description }) {
+  return (
+    <Group justify="space-between" gap="xl" wrap="nowrap">
+      <Text size="sm">{description}</Text>
+      <Group gap={4} wrap="nowrap">
+        {keys.map((k) => (
+          <Kbd key={k} size="xs">{k}</Kbd>
+        ))}
+      </Group>
+    </Group>
+  );
+}
+
+function MouseRow({ gesture, description }) {
+  return (
+    <Group justify="space-between" gap="xl" wrap="nowrap">
+      <Text size="sm">{description}</Text>
+      <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>{gesture}</Text>
+    </Group>
+  );
+}
 
 export function KeyboardShortcutsHelp({ onClose }) {
   useEffect(() => {
@@ -35,21 +67,19 @@ export function KeyboardShortcutsHelp({ onClose }) {
         bottom: 24,
         right: 24,
         zIndex: 1000,
-        minWidth: 280,
+        minWidth: 300,
         pointerEvents: 'none',
       }}
     >
       <Stack gap="xs">
         <Text size="sm" fw={600} c="dimmed">Keyboard Shortcuts</Text>
-        {SHORTCUTS.map(({ keys, description }) => (
-          <Group key={description} justify="space-between" gap="xl">
-            <Text size="sm">{description}</Text>
-            <Group gap={4}>
-              {keys.map((k) => (
-                <Kbd key={k} size="xs">{k}</Kbd>
-              ))}
-            </Group>
-          </Group>
+        {KEYBOARD_SHORTCUTS.map((s) => (
+          <ShortcutRow key={s.description} {...s} />
+        ))}
+        <Divider mt={4} />
+        <Text size="sm" fw={600} c="dimmed">Mouse</Text>
+        {MOUSE_ACTIONS.map((a) => (
+          <MouseRow key={a.description} {...a} />
         ))}
       </Stack>
     </Paper>
