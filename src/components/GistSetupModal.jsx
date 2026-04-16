@@ -1,103 +1,73 @@
-import { useState, useCallback } from 'react';
-import { Modal, Stack, TextInput, PasswordInput, Button, Text, Group, Anchor, Divider } from '@mantine/core';
-import { fetchGistData, extractGistId, createGist } from '../utils/gist';
-import { defaultData } from '../data/defaultData';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import {
+  Modal, Stack, TextInput, PasswordInput, Button, Text, Group,
+  Anchor, Divider, Code, CopyButton, Collapse, Loader, Tooltip, Card,
+} from '@mantine/core';
+import {
+  requestDeviceCode, pollForToken, findSkillTreeGists,
+  createGist, fetchGistData, extractGistId,
+} from '../utils/gist';
+import { defaultData, GITHUB_CLIENT_ID } from '../data/defaultData';
 
 const DEFAULT_FILENAME = 'my_skill_tree.json';
+// Phases: 'idle' | 'requesting' | 'polling' | 'discovering' | 'picking' | 'creating' | 'error'
 
-export function GistSetupModal({ opened, onConfigure, onClose, initialUrl = '', initialToken = '' }) {
-  const [url, setUrl] = useState(initialUrl);
-  const [token, setToken] = useState(initialToken);
-  const [status, setStatus] = useState(null); // null | 'loading' | 'success' | string (error msg)
+function formatDate(iso) {
+  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
 
-  const handleConnect = useCallback(async () => {
-    setStatus('loading');
-    try {
-      const gistId = extractGistId(url);
-      const { data, filename } = await fetchGistData(gistId, token);
-      if (!data.nodes || !data.edges) {
-        throw new Error('Gist JSON is missing required fields (nodes, edges).');
-      }
-      setStatus('success');
-      onConfigure({ gistId, gistUrl: url.trim(), filename, token }, data);
-    } catch (err) {
-      setStatus(err.message);
+export function GistSetupModal({ opened, onConfigure, onClose }) {
+  const [treeName, setTreeName] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (opened) {
+      setTreeName("");
+      setError("");
     }
-  }, [url, token, onConfigure]);
+  }, [opened]);
 
-  const handleCreate = useCallback(async () => {
-    setStatus('loading');
-    try {
-      const config = await createGist(DEFAULT_FILENAME, defaultData, token);
-      setStatus('success');
-      onConfigure({ ...config, token }, defaultData);
-    } catch (err) {
-      setStatus(err.message);
+  const handleCreate = () => {
+    if (!treeName.trim()) {
+      setError("Please enter a tree name.");
+      return;
     }
-  }, [token, onConfigure]);
-
-  const isError = typeof status === 'string' && status !== 'loading' && status !== 'success';
-  const isForced = !onClose;
-  const isLoading = status === 'loading';
+    onConfigure({ treeName: treeName.trim() });
+  };
 
   return (
     <Modal
       opened={opened}
       onClose={onClose ?? (() => {})}
-      withCloseButton={!isForced}
-      closeOnClickOutside={!isForced}
-      closeOnEscape={!isForced}
-      title="Connect your Gist"
+      withCloseButton={!!onClose}
+      closeOnClickOutside={!!onClose}
+      closeOnEscape={!!onClose}
+      title="Add New Skill Tree"
       centered
     >
       <Stack gap="md">
         <Text size="sm" c="dimmed">
-          Your skill tree is stored in a GitHub Gist. You'll need a{' '}
-          <Anchor
-            href="https://github.com/settings/tokens/new?scopes=gist"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Personal Access Token
-          </Anchor>{' '}
-          with <code>gist</code> scope.
+          <b>Skill Tree is a BYOB (Bring Your Own Backend) app.</b><br />
+          There is no central database and no sign-in required. <b>Your data is never stored on our servers.</b><br /><br />
+          To save and sync your skill trees, you will need a GitHub account. When you add a new tree, the app will create a <b>private GitHub Gist</b> in your account to store your data. Only you can access it unless you share the Gist URL. You will be asked to authorize access to your GitHub account (using GitHub's official Device Flow), but your credentials are never seen or stored by this app.<br /><br />
+          <b>Why GitHub?</b> Using your own GitHub account means you control your data, can sync across devices, and don't need to trust a random server. You can delete your Gists from your GitHub account at any time.
         </Text>
-
-        <PasswordInput
-          label="GitHub Personal Access Token"
-          placeholder="github_pat_…"
-          value={token}
-          onChange={(e) => setToken(e.currentTarget.value)}
-        />
-
-        <Divider label="Use existing Gist" labelPosition="left" />
-
         <TextInput
-          label="Gist URL"
-          placeholder="https://gist.github.com/username/abc123…"
-          value={url}
-          onChange={(e) => setUrl(e.currentTarget.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && url && token) handleConnect();
+          label="Tree Name"
+          placeholder="e.g. Left Hand Practice"
+          value={treeName}
+          onChange={e => setTreeName(e.target.value)}
+          autoFocus
+          onKeyDown={e => {
+            if (e.key === 'Enter') handleCreate();
+            if (e.key === 'Escape' && onClose) onClose();
           }}
         />
-        <Group justify="flex-end">
-          <Button onClick={handleConnect} loading={isLoading} disabled={!url || !token}>
-            Connect
-          </Button>
+        {error && <Text c="red" size="sm">{error}</Text>}
+        <Group gap="sm">
+          <Button onClick={handleCreate} disabled={!treeName.trim()}>Create Tree</Button>
+          {onClose && <Button variant="default" onClick={onClose}>Cancel</Button>}
         </Group>
-
-        <Divider label="Or start fresh" labelPosition="left" />
-
-        <Group justify="space-between" align="center">
-          <Text size="sm" c="dimmed">Create a new secret Gist with empty data.</Text>
-          <Button variant="default" onClick={handleCreate} loading={isLoading} disabled={!token}>
-            Create Gist
-          </Button>
-        </Group>
-
-        {isError && <Text c="red" size="sm">{status}</Text>}
-        {status === 'success' && <Text c="green" size="sm">Connected!</Text>}
       </Stack>
     </Modal>
   );
