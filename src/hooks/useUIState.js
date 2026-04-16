@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useLocalStorage } from './useLocalStorage';
 
-export function useUIState({ canvasRef, skillTreeRef, setConfig }) {
-  const [switchTreeModalOpen, setSwitchTreeModalOpen] = useState(false);
+export function useUIState({ canvasRef, skillTreeRef }) {
+  const [treeManagerOpen, setTreeManagerOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useLocalStorage('psskill_ui_sidebar', false);
   const [hideMaxScore, setHideMaxScore] = useLocalStorage('psskill_ui_hidemaxscore', false);
   const [showGrid, setShowGrid] = useLocalStorage('psskill_ui_showgrid', false);
@@ -52,20 +52,6 @@ export function useUIState({ canvasRef, skillTreeRef, setConfig }) {
     setSidebarOpen(true);
   }, [setSidebarOpen]);
 
-  // If coming from guest mode, upload local data to Gist instead of overwriting
-  const handleGistConfigure = useCallback((newConfig, data) => {
-    const localData = skillTreeRef.current?.data;
-    setConfig(newConfig);
-    // If localData exists and has nodes, prefer uploading it
-    if (localData && Array.isArray(localData.nodes) && localData.nodes.length > 0) {
-      skillTreeRef.current.importData(localData);
-    } else {
-      skillTreeRef.current.importData(data);
-    }
-    setGistModalOpen(false);
-  }, [setConfig, skillTreeRef]);
-
-  const handleGistSettings = useCallback(() => setGistModalOpen(true), []);
   const openBulkTagModal = useCallback(() => setBulkTagModalOpen(true), []);
   const closeBulkTagModal = useCallback(() => setBulkTagModalOpen(false), []);
   const handleToggleSidebar = useCallback(() => setSidebarOpen((o) => !o), [setSidebarOpen]);
@@ -128,8 +114,6 @@ export function useUIState({ canvasRef, skillTreeRef, setConfig }) {
     handleZoomOut,
     handleImport,
     openInspector,
-    handleGistConfigure,
-    handleGistSettings,
     handleToggleSidebar,
     handleToggleHideMaxScore,
     handleToggleShowGrid,
@@ -138,8 +122,7 @@ export function useUIState({ canvasRef, skillTreeRef, setConfig }) {
     bulkTagModalOpen,
     openBulkTagModal,
     closeBulkTagModal,
-    switchTreeModalOpen,
-    setSwitchTreeModalOpen,
-    handleSwitchTree: () => setSwitchTreeModalOpen(true),
+    treeManagerOpen,
+    setTreeManagerOpen,
   };
 }

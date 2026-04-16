@@ -10,7 +10,9 @@ function authHeaders(token) {
 
 export async function fetchGistData(gistId, token) {
   const res = await fetch(`${GIST_API}/${gistId}`, { headers: authHeaders(token) });
-  if (!res.ok) throw new Error(`GitHub API error ${res.status}: ${res.statusText}`);
+  if (!res.ok) {
+    throw new Error(`GitHub API error ${res.status}: ${res.statusText}`);
+  }
 
   const gist = await res.json();
   const jsonFile = Object.values(gist.files).find((f) => f.filename.endsWith('.json'));
@@ -30,7 +32,9 @@ export async function saveGistData(gistId, filename, data, token) {
     headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
     body: JSON.stringify({ files: { [filename]: { content: JSON.stringify(data, null, 2) } } }),
   });
-  if (!res.ok) throw new Error(`GitHub API error ${res.status}: ${res.statusText}`);
+  if (!res.ok) {
+    throw new Error(`GitHub API error ${res.status}: ${res.statusText}`);
+  }
 }
 
 /** Extracts the gist ID from a full URL or returns the input as-is. */
@@ -51,9 +55,20 @@ export async function createGist(filename, data, token, description = 'Pen Spinn
       files: { [filename]: { content: JSON.stringify(data, null, 2) } },
     }),
   });
-  if (!res.ok) throw new Error(`GitHub API error ${res.status}: ${res.statusText}`);
+  if (!res.ok) {
+    throw new Error(`GitHub API error ${res.status}: ${res.statusText}`);
+  }
   const gist = await res.json();
   return { gistId: gist.id, gistUrl: gist.html_url, filename };
+}
+
+/** Permanently deletes a Gist by its ID. */
+export async function deleteGistById(gistId, token) {
+  const res = await fetch(`${GIST_API}/${gistId}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  });
+  if (!res.ok) throw new Error(`GitHub API error ${res.status}: ${res.statusText}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -67,7 +82,9 @@ export async function requestDeviceCode(clientId) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ client_id: clientId }),
   });
-  if (!res.ok) throw new Error(`Auth proxy error ${res.status}: ${res.statusText}`);
+  if (!res.ok) {
+    throw new Error(`Auth proxy error ${res.status}: ${res.statusText}`);
+  }
   return res.json();
   // returns: { device_code, user_code, verification_uri, verification_uri_complete, expires_in, interval }
 }
@@ -91,14 +108,19 @@ export function pollForToken(clientId, deviceCode, intervalSecs, signal) {
         });
         const json = await res.json();
 
-        if (json.access_token) { resolve(json.access_token); return; }
+        if (json.access_token) {
+          resolve(json.access_token); return;
+        }
 
         switch (json.error) {
           case 'authorization_pending': break;
           case 'slow_down': delay += 5000; break;
-          case 'expired_token': reject(new Error('Code expired. Please try again.')); return;
-          case 'access_denied':  reject(new Error('Access denied.')); return;
-          default: reject(new Error(json.error_description ?? json.error ?? 'Unknown error')); return;
+          case 'expired_token':
+            reject(new Error('Code expired. Please try again.')); return;
+          case 'access_denied':
+            reject(new Error('Access denied.')); return;
+          default:
+            reject(new Error(json.error_description ?? json.error ?? 'Unknown error')); return;
         }
       } catch (err) {
         reject(err); return;

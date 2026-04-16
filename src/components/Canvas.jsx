@@ -35,6 +35,7 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
   const [edgePopupPos, setEdgePopupPos] = useState(null);
   const [minimapOpen, setMinimapOpen] = useState(true);
   const [minimapToggled, setMinimapToggled] = useState(false);
+  const minimapRef = useRef(null);
   const isShiftHeld = useRef(false);
   const snapModeRef = useRef(snapMode);
   useEffect(() => { snapModeRef.current = snapMode; }, [snapMode]);
@@ -356,6 +357,18 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
     reactFlowInstance.setViewport({ x: x + dx, y: y + dy, zoom });
   }, [reactFlowInstance]);
 
+  const handleMinimapClick = useCallback((event) => {
+    if (!reactFlowInstance) return;
+    const svg = minimapRef.current?.querySelector('svg');
+    if (!svg) return;
+    const pt = svg.createSVGPoint();
+    pt.x = event.clientX;
+    pt.y = event.clientY;
+    const flowPt = pt.matrixTransform(svg.getScreenCTM().inverse());
+    const { zoom } = reactFlowInstance.getViewport();
+    reactFlowInstance.setCenter(flowPt.x, flowPt.y, { zoom, duration: 200 });
+  }, [reactFlowInstance]);
+
   useImperativeHandle(ref, () => ({ fitView, getViewportCenter, zoomIn, zoomOut, panBy }), [fitView, getViewportCenter, zoomIn, zoomOut, panBy]);
 
   return (
@@ -395,6 +408,7 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
         >
           {showGrid && <StaggeredBackground />}
           <Controls />
+          <div ref={minimapRef} onClick={handleMinimapClick}>
           <MiniMap
             nodeColor={(node) => scoreColor(node.data?.score ?? null)}
             nodeStrokeWidth={3}
@@ -404,6 +418,7 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
             className={!minimapToggled ? undefined : (minimapOpen ? 'minimap-map--opening' : 'minimap-map--closing')}
             style={{ width: 240, height: 160 }}
           />
+          </div>
         </ReactFlow>
       </ReactFlowProvider>
 

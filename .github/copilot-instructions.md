@@ -49,13 +49,27 @@ All persistent state lives in a single `data` object:
 
 ---
 
-## localStorage Keys
+
+## Authentication (Device Flow OAuth)
+
+**Gist sync uses GitHub Device Flow OAuth, NOT PATs.**
+
+- On first run, user authenticates via Device Flow (browser + code).
+- The app stores the resulting access token in localStorage (`psskill_gist_config`).
+- All Gist API calls use this token as a Bearer token.
+- The Netlify function `/netlify/functions/github-auth.js` proxies Device Flow endpoints for CORS.
+
+**If you see a 401 error:**
+- The token is missing, expired, or invalid (user revoked access, or device flow not completed).
+- User must re-authenticate via the Gist setup modal.
+
+**localStorage Keys**
 
 | Key | Content |
 |-----|---------|
 | `psskill_data` | Full data object (nodes + edges + styles) |
 | `psskill_viewport` | ReactFlow viewport `{ x, y, zoom }` |
-| `psskill_gist_config` | `{ gistId, gistUrl, filename, token }` or absent if unconfigured |
+| `psskill_gist_config` | `{ gistId, gistUrl, filename, token }` (token is Device Flow OAuth, not PAT) |
 | `psskill_ui_sidebar` | boolean — sidebar panel open |
 | `psskill_ui_hidemaxscore` | boolean — hide score=10 nodes |
 | `psskill_ui_showgrid` | boolean — show staggered grid background |
@@ -88,7 +102,7 @@ Single source of truth for all data and mutations. Returns the `skillTree` objec
 ### `useUIState({ canvasRef, skillTreeRef, setConfig })` — `src/hooks/useUIState.js`
 All UI state not related to data. Uses `skillTreeRef` (a ref to the `skillTree` object) to call mutations without re-renders.
 - UI prefs stored via `useLocalStorage`: `sidebarOpen`, `hideMaxScore`, `showGrid`, `snapMode`.
-- Modal state: `gistModalOpen`, `shortcutsHelpOpen`, `bulkTagModalOpen`.
+- Modal state: `gistModalOpen`, `shortcutsHelpOpen`, `bulkTagModalOpen`, `switchTreeModalOpen`.
 - **Global keyboard handler** (added on window in a single `useEffect`): Ctrl+Z/Y, Ctrl+C/V, Delete, Ctrl+Alt+T (auto-layout), Ctrl+Alt+H (toggle hideMaxScore), `?` (shortcuts help), Arrow keys (pan canvas).
 - Delegates canvas ops to `canvasRef.current` (imperative Canvas API): `fitView()`, `zoomIn()`, `zoomOut()`, `getViewportCenter()`, `panBy(dx, dy)`.
 
@@ -107,14 +121,15 @@ All UI state not related to data. Uses `skillTreeRef` (a ref to the `skillTree` 
 
 ```
 App
-├── useGistConfig → config/setConfig
+├── useGistConfig → config/setConfig/clearConfig
 ├── useUIState    → ui.*
 ├── useSkillTree  → skillTree.*
 │
-├── GistSetupModal   (shown when config=null or ui.gistModalOpen)
+├── GistSetupModal   (Device Flow auth + gist picker/creator)
+├── TreePickerModal  (switch between existing gists; create/delete trees)
 ├── BulkTagModal     (ui.bulkTagModalOpen)
 ├── KeyboardShortcutsHelp (ui.shortcutsHelpOpen)
-├── Toolbar          (export, import, gist settings, panel toggle, sync status)
+├── Toolbar          (export, import, gist settings, switch tree, guest mode, panel toggle, sync status)
 ├── ActionBar        (add node, grid, snap, auto-layout, hide mastered, edit tags)
 ├── Canvas (ref)     (ReactFlow; all node/edge interaction)
 └── Sidebar          (right panel; tabs: Inspector | JSON | Settings)
@@ -164,7 +179,7 @@ App
 | File | Purpose |
 |------|---------|
 | `utils/layout.js` | `tidyLayout(nodes)` — snaps nodes to staggered brick-wall grid, resolves collisions. Constants: `NODE_WIDTH=180`, `NODE_HEIGHT=42`, `GRID_X=188`, `GRID_Y=82`, `STAGGER=94`. Also exports `snapToGrid`. |
-| `utils/gist.js` | `fetchGistData`, `saveGistData`, `createGist`, `extractGistId` — GitHub Gist REST API (PATCH to update). Handles truncated gist content via raw URL fallback. |
+| `utils/gist.js` | `fetchGistData`, `saveGistData`, `createGist`, `extractGistId` — GitHub Gist REST API (PATCH to update). Handles truncated gist content via raw URL fallback. Also: `requestDeviceCode`, `pollForToken`, `findSkillTreeGists` for Device Flow OAuth and gist discovery. |
 | `utils/viewport.js` | `loadViewport()` / `saveViewport()` — read/write `psskill_viewport`. |
 | `utils/score.js` | `scoreColor(score)` — returns `hsl(0–120, 90%, 55%)` for 0–10; `'#999'` for null. |
 
@@ -179,7 +194,7 @@ App
 - **Refs for stale-closure avoidance**: `selectedIdsRef`, `clipboardRef`, `dataRef` are kept in sync via `useEffect` and consumed inside `useCallback`s that have empty or minimal deps arrays.
 - **`isFirstRender` in Gist auto-save**: The debounced Gist save effect skips the first render to avoid immediately overwriting Gist data with localStorage content before the Gist fetch completes.
 - **`hideMaxScore`**: Nodes with `score === 10` are computed into `hiddenNodeIds` and filtered from both `flowNodes` and `flowEdges`. Edges where either endpoint is hidden are also hidden.
-- **First-run gate**: `config === null` (no Gist config in localStorage) forces `GistSetupModal` open with no close button. User must connect or create a Gist to proceed.
+- **First-run gate**: `config === null` (no Gist config in localStorage) puts the app in **guest mode** — localStorage-only, with a warning banner in the Toolbar. User can connect to GitHub at any time via the GistSetupModal.
 - **Staggered grid layout**: Odd rows are offset by `STAGGER = GRID_X / 2` giving a brick-wall pattern. `tidyLayout` snaps to nearest free cell, resolving collisions outward in spiral order.
 
 ---
@@ -187,6 +202,9 @@ App
 ## File/Folder Structure
 
 ```
+netlify/
+  functions/
+    github-auth.js      CORS proxy for GitHub Device Flow (device code + token exchange)
 src/
   App.jsx               Root component; wires hooks, renders layout shell
   main.jsx              React entry: MantineProvider + ReactFlowProvider + <App>
@@ -198,7 +216,8 @@ src/
     ContextMenu.jsx      Right-click menu (pane: add node; node: edit/delete)
     CustomBezierEdge.jsx Custom edge with arrowhead + hover glow
     EditableNode.jsx     Inline edit form node (label + score slider)
-    GistSetupModal.jsx   Gist connect/create modal (first-run + settings)
+    GistSetupModal.jsx   Device Flow auth + gist picker/creator modal
+    GuestModeBanner.jsx  Guest mode alert banner (unused; inline in Toolbar)
     HoverContext.jsx     Split read/write hover context for edge glow
     InspectorPanel.jsx   Read-only selected-node detail pane
     JsonPanel.jsx        Raw JSON viewer/editor with apply
@@ -207,17 +226,18 @@ src/
     Sidebar.jsx          Right panel shell with 3 tabs
     SkillNode.jsx        Read-only node card (label, progress bar, tag border)
     StaggeredBackground.jsx  SVG grid background synced to RF viewport
-    Toolbar.jsx          Top bar (title, export, import, gist, panel)
+    TreePickerModal.jsx  Switch/create/delete skill trees (used from Toolbar)
+    Toolbar.jsx          Top bar (title, export, import, gist, switch tree, guest mode, panel)
   data/
     defaultData.js       Default nodes/edges, constants (DATA_KEY, VIEWPORT_KEY,
-                         GIST_CONFIG_KEY, DEFAULT_EDGE_TYPE), defaultData object
+                         GIST_CONFIG_KEY, DEFAULT_EDGE_TYPE, GITHUB_CLIENT_ID), defaultData object
   hooks/
     useGistConfig.js     Gist config localStorage persistence
     useLocalStorage.js   Generic key/value localStorage hook
     useSkillTree.js      All data state, mutations, undo, Gist sync
     useUIState.js        UI preferences, modals, keyboard shortcuts
   utils/
-    gist.js              GitHub Gist API (fetch, save, create, extractId)
+    gist.js              GitHub Gist API (fetch, save, create, extractId, Device Flow, findSkillTreeGists)
     layout.js            Staggered grid layout (tidyLayout, snapToGrid, constants)
     score.js             scoreColor(score) — hsl color ramp
     viewport.js          loadViewport / saveViewport for psskill_viewport

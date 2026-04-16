@@ -50,14 +50,15 @@ export async function handler(event) {
   let body;
   try {
     body = JSON.parse(event.body ?? '{}');
-  } catch {
+  } catch (e) {
     return json(400, { error: 'Invalid JSON body' });
   }
 
   if (action === 'device') {
     const { client_id } = body;
-    if (!client_id) return json(400, { error: 'client_id is required' });
-
+    if (!client_id) {
+      return json(400, { error: 'client_id is required' });
+    }
     const res = await fetch(GITHUB_DEVICE_URL, {
       method: 'POST',
       headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
@@ -69,8 +70,9 @@ export async function handler(event) {
 
   if (action === 'token') {
     const { client_id, device_code } = body;
-    if (!client_id || !device_code) return json(400, { error: 'client_id and device_code are required' });
-
+    if (!client_id || !device_code) {
+      return json(400, { error: 'client_id and device_code are required' });
+    }
     const res = await fetch(GITHUB_TOKEN_URL, {
       method: 'POST',
       headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
