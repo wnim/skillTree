@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useLocalStorage } from './useLocalStorage';
 
 export function useUIState({ canvasRef, skillTreeRef, setConfig }) {
+  const [switchTreeModalOpen, setSwitchTreeModalOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useLocalStorage('psskill_ui_sidebar', false);
   const [hideMaxScore, setHideMaxScore] = useLocalStorage('psskill_ui_hidemaxscore', false);
   const [showGrid, setShowGrid] = useLocalStorage('psskill_ui_showgrid', false);
@@ -51,9 +52,16 @@ export function useUIState({ canvasRef, skillTreeRef, setConfig }) {
     setSidebarOpen(true);
   }, [setSidebarOpen]);
 
+  // If coming from guest mode, upload local data to Gist instead of overwriting
   const handleGistConfigure = useCallback((newConfig, data) => {
+    const localData = skillTreeRef.current?.data;
     setConfig(newConfig);
-    skillTreeRef.current.importData(data);
+    // If localData exists and has nodes, prefer uploading it
+    if (localData && Array.isArray(localData.nodes) && localData.nodes.length > 0) {
+      skillTreeRef.current.importData(localData);
+    } else {
+      skillTreeRef.current.importData(data);
+    }
     setGistModalOpen(false);
   }, [setConfig, skillTreeRef]);
 
@@ -130,5 +138,8 @@ export function useUIState({ canvasRef, skillTreeRef, setConfig }) {
     bulkTagModalOpen,
     openBulkTagModal,
     closeBulkTagModal,
+    switchTreeModalOpen,
+    setSwitchTreeModalOpen,
+    handleSwitchTree: () => setSwitchTreeModalOpen(true),
   };
 }
