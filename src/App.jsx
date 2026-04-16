@@ -1,6 +1,6 @@
-import { useEffect, useRef, useMemo } from 'react';
+import { useRef, useMemo, useCallback } from 'react';
 import { Toolbar } from './components/Toolbar';
-import { TreePickerModal } from './components/TreePickerModal';
+import { TreeManagerModal } from './components/TreeManagerModal';
 import { ActionBar } from './components/ActionBar';
 import { Canvas } from './components/Canvas';
 import { Sidebar } from './components/Sidebar';
@@ -15,12 +15,9 @@ import { defaultData } from './data/defaultData';
 
 
 function App() {
-  const { config, setConfig } = useGistConfig();
+  const { config, setConfig, clearConfig } = useGistConfig();
   const canvasRef = useRef(null);
   const skillTreeRef = useRef(null);
-
-  // Persist last-used tree ID for auto-reload
-  const lastTreeKey = 'psskill_last_gistid';
 
   // 1. Call useSkillTree first
   const [hideMaxScore, setHideMaxScore] = useLocalStorage('psskill_ui_hidemaxscore', false);
@@ -28,17 +25,7 @@ function App() {
   skillTreeRef.current = skillTree;
 
   // 2. Call useUIState after skillTreeRef is set
-  const ui = useUIState({ canvasRef, skillTreeRef, setConfig });
-
-  // Save last-used tree ID
-  useEffect(() => {
-    if (config?.gistId) {
-      localStorage.setItem(lastTreeKey, config.gistId);
-    }
-  }, [config?.gistId]);
-
-  // Guest mode: do not force modal open on first run
-  const isFirstTime = false;
+  const ui = useUIState({ canvasRef, skillTreeRef });
 
   const bulkSelectedNodes = useMemo(
     () => skillTree.data.nodes.filter((n) => skillTree.selectedIds.has(n.id)),
@@ -49,15 +36,67 @@ function App() {
     skillTree.bulkUpdateTags([...skillTree.selectedIds], toRemove, toAdd);
   };
 
+  // --- Tree Manager callbacks ---
+
+  const handleSwitchTree = useCallback((g) => {
+    setConfig({ gistId: g.gistId, gistUrl: g.gistUrl, filename: g.filename, token: config.token });
+    skillTreeRef.current.importData(g.data);
+    ui.setTreeManagerOpen(false);
+    requestAnimationFrame(() => canvasRef.current?.fitView());
+  }, [config, setConfig, skillTreeRef, ui, canvasRef]);
+
+  const handleCreateTree = useCallback((created) => {
+    setConfig({ gistId: created.gistId, gistUrl: created.gistUrl, filename: created.filename, token: config.token });
+    skillTreeRef.current.importData(defaultData);
+    ui.setTreeManagerOpen(false);
+    requestAnimationFrame(() => canvasRef.current?.fitView());
+  }, [config, setConfig, skillTreeRef, ui, canvasRef]);
+
+  const handleDisconnect = useCallback(() => {
+    clearConfig();
+    skillTreeRef.current.importData(defaultData);
+    requestAnimationFrame(() => canvasRef.current?.fitView());
+  }, [clearConfig, skillTreeRef, canvasRef]);
+
+  // After auth resolves with full config (0 or 1 trees auto-resolved)
+  const handleGistConfigure = useCallback((newConfig, data) => {
+    setConfig(newConfig);
+    skillTreeRef.current.importData(data);
+    ui.setGistModalOpen(false);
+    requestAnimationFrame(() => canvasRef.current?.fitView());
+  }, [setConfig, skillTreeRef, ui, canvasRef]);
+
+  // After auth when multiple trees exist — token only, open TreeManager
+  const handleAuthOnly = useCallback((token) => {
+    // Store token-only config temporarily so TreeManagerModal can fetch trees
+    // We need a gistId to make the app "authenticated", so we open tree manager
+    // with just the token stored.  Config will be completed when user picks a tree.
+    setConfig({ token, gistId: null, gistUrl: null, filename: null });
+    ui.setGistModalOpen(false);
+    ui.setTreeManagerOpen(true);
+  }, [setConfig, ui]);
+
   return (
     <>
-      {ui.shortcutsHelpOpen && <KeyboardShortcutsHelp onClose={() => ui.setShortcutsHelpOpen(false)} />}
+      <KeyboardShortcutsHelp open={ui.shortcutsHelpOpen} onToggle={() => ui.setShortcutsHelpOpen(o => !o)} />
       <GistSetupModal
         opened={ui.gistModalOpen}
         onClose={() => ui.setGistModalOpen(false)}
-        onConfigure={ui.handleGistConfigure}
-        initialUrl={config?.gistUrl ?? ''}
-        initialToken={config?.token ?? ''}
+        onConfigure={handleGistConfigure}
+        onAuthOnly={handleAuthOnly}
+        guestData={skillTree.data}
+      />
+      <TreeManagerModal
+        opened={ui.treeManagerOpen}
+        onClose={() => ui.setTreeManagerOpen(false)}
+        config={config}
+        onImport={ui.handleImport}
+        onExport={skillTree.exportData}
+        onConnectGitHub={() => { ui.setTreeManagerOpen(false); ui.setGistModalOpen(true); }}
+        onDisconnect={handleDisconnect}
+        onSwitchTree={handleSwitchTree}
+        onCreateTree={handleCreateTree}
+        nodeCount={skillTree.data.nodes.length}
       />
       <BulkTagModal
         opened={ui.bulkTagModalOpen}
@@ -69,42 +108,12 @@ function App() {
       />
       <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
         <Toolbar
-          onFitView={ui.handleFitView}
-          onExport={skillTree.exportData}
-          onImport={ui.handleImport}
           syncStatus={skillTree.syncStatus}
-          onGistSettings={ui.handleGistSettings}
           onToggleSidebar={ui.handleToggleSidebar}
           sidebarOpen={ui.sidebarOpen}
-          onSwitchTree={ui.handleSwitchTree}
-          guestMode={!config}
-          onConnectGuestMode={() => ui.setGistModalOpen(true)}
+          guestMode={!config || !config.gistId}
+          onOpenTreeManager={() => ui.setTreeManagerOpen(true)}
         />
-              <TreePickerModal
-                opened={ui.switchTreeModalOpen}
-                token={config?.token ?? ''}
-                onPick={(g) => {
-                  setConfig({
-                    gistId: g.gistId,
-                    gistUrl: g.gistUrl,
-                    filename: g.filename,
-                    token: config.token,
-                  });
-                  skillTreeRef.current.importData(g.data);
-                  ui.setSwitchTreeModalOpen(false);
-                }}
-                onCreate={(created) => {
-                  setConfig({
-                    gistId: created.gistId,
-                    gistUrl: created.gistUrl,
-                    filename: created.filename,
-                    token: config.token,
-                  });
-                  skillTreeRef.current.importData(defaultData);
-                  ui.setSwitchTreeModalOpen(false);
-                }}
-                onClose={() => ui.setSwitchTreeModalOpen(false)}
-              />
         <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
           <ActionBar
             onAddNode={ui.handleAddNode}
