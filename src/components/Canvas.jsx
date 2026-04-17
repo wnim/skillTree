@@ -145,6 +145,26 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
     };
   }, []);
 
+  // Shift+scroll accelerator: intercept wheel events while Shift is held,
+  // prevent ReactFlow's default pan, and apply a faster pan manually.
+  // Must use capture phase so we intercept before ReactFlow's own wheel handler.
+  const SHIFT_SCROLL_MULTIPLIER = 3;
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const onWheel = (e) => {
+      if (!e.shiftKey) return;
+      const rf = reactFlowRef.current;
+      if (!rf) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const { x, y, zoom } = rf.getViewport();
+      rf.setViewport({ x: x - e.deltaX * SHIFT_SCROLL_MULTIPLIER, y: y - e.deltaY * SHIFT_SCROLL_MULTIPLIER, zoom });
+    };
+    container.addEventListener('wheel', onWheel, { capture: true, passive: false });
+    return () => container.removeEventListener('wheel', onWheel, { capture: true });
+  }, []);
+
   const handleInit = useCallback((flow) => {
     setReactFlowInstance(flow);
     reactFlowRef.current = flow;

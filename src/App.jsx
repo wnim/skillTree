@@ -10,7 +10,6 @@ import { BulkTagModal } from './components/BulkTagModal';
 import { useSkillTree } from './hooks/useSkillTree';
 import { useGistConfig } from './hooks/useGistConfig';
 import { useUIState } from './hooks/useUIState';
-import { useLocalStorage } from './hooks/useLocalStorage';
 import { defaultData } from './data/defaultData';
 
 
@@ -19,13 +18,11 @@ function App() {
   const canvasRef = useRef(null);
   const skillTreeRef = useRef(null);
 
-  // 1. Call useSkillTree first
-  const [hideMaxScore, setHideMaxScore] = useLocalStorage('psskill_ui_hidemaxscore', false);
-  const skillTree = useSkillTree(config, hideMaxScore);
-  skillTreeRef.current = skillTree;
-
-  // 2. Call useUIState after skillTreeRef is set
+  // useUIState owns hideMaxScore; called first since it only uses skillTreeRef.current in callbacks
   const ui = useUIState({ canvasRef, skillTreeRef });
+
+  const skillTree = useSkillTree(config, ui.hideMaxScore);
+  skillTreeRef.current = skillTree;
 
   const bulkSelectedNodes = useMemo(
     () => skillTree.data.nodes.filter((n) => skillTree.selectedIds.has(n.id)),
@@ -78,7 +75,6 @@ function App() {
 
   return (
     <>
-      <KeyboardShortcutsHelp open={ui.shortcutsHelpOpen} onToggle={() => ui.setShortcutsHelpOpen(o => !o)} />
       <GistSetupModal
         opened={ui.gistModalOpen}
         onClose={() => ui.setGistModalOpen(false)}
@@ -137,6 +133,7 @@ function App() {
               showGrid={ui.showGrid}
               snapMode={ui.snapMode}
             />
+            <KeyboardShortcutsHelp open={ui.shortcutsHelpOpen} onToggle={() => ui.setShortcutsHelpOpen(o => !o)} />
           </div>
           <div style={{
             width: ui.sidebarOpen ? 320 : 0,

@@ -8,9 +8,10 @@ const SHORTCUT_TOPICS = [
     items: [
       { keys: ['Space', 'Drag'], description: 'Pan canvas (drag)' },
       { keys: ['Scroll'], description: 'Pan canvas (scroll)' },
+      { keys: ['Shift', 'Scroll'], description: 'Pan canvas (faster)' },
       { keys: ['Ctrl', 'Scroll'], description: 'Zoom in / out' },
       { keys: ['↑', '↓', '←', '→'], description: 'Pan canvas (keys)' },
-      { keys: ['Shift', '↑↓←→'], description: 'Pan canvas (faster)' },
+      { keys: ['Shift', '↑↓←→'], description: 'Pan canvas (faster, keys)' },
     ],
   },
   {
@@ -69,7 +70,7 @@ export function KeyboardShortcutsHelp({ open, onToggle }) {
   }, [open, onToggle]);
 
   return (
-    <div style={{ position: 'fixed', top: 12, right: 12, zIndex: 1000 }}>
+    <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 10, pointerEvents: 'none' }}>
       {/* ? icon — always visible when panel is closed */}
       <ActionIcon
         variant="subtle"
@@ -97,7 +98,7 @@ export function KeyboardShortcutsHelp({ open, onToggle }) {
         radius="md"
         withBorder
         style={{
-          minWidth: 300,
+          minWidth: 520,
           transformOrigin: 'top right',
           transform: open ? 'scale(1)' : 'scale(0)',
           opacity: open ? 1 : 0,
@@ -105,17 +106,16 @@ export function KeyboardShortcutsHelp({ open, onToggle }) {
           pointerEvents: open ? 'auto' : 'none',
         }}
       >
-        <Stack gap="xs">
-          {SHORTCUT_TOPICS.map((section, i) => (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--mantine-spacing-md)', alignItems: 'start' }}>
+          {SHORTCUT_TOPICS.map((section) => (
             <Stack key={section.topic} gap="xs">
-              {i > 0 && <Divider />}
               <Text size="sm" fw={600} c="dimmed">{section.topic}</Text>
               {section.items.map((s) => (
                 <ShortcutRow key={s.description} {...s} />
               ))}
             </Stack>
           ))}
-        </Stack>
+        </div>
       </Paper>
     </div>
   );

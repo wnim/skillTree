@@ -167,12 +167,17 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
   );
 
   const deleteNode = useCallback(
-    (nodeId) => {
+    (nodeIdOrIds) => {
+      const ids = Array.isArray(nodeIdOrIds) ? new Set(nodeIdOrIds) : new Set([nodeIdOrIds]);
       updateData((prev) => ({
-        nodes: prev.nodes.filter((n) => n.id !== nodeId),
-        edges: prev.edges.filter((e) => e.from !== nodeId && e.to !== nodeId),
+        nodes: prev.nodes.filter((n) => !ids.has(n.id)),
+        edges: prev.edges.filter((e) => !ids.has(e.from) && !ids.has(e.to)),
       }));
-      setSelectedIds((prev) => { if (!prev.has(nodeId)) return prev; const next = new Set(prev); next.delete(nodeId); return next; });
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const id of ids) next.delete(id);
+        return next.size === prev.size ? prev : next;
+      });
     },
     [updateData],
   );
