@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { startTransition, useCallback, useEffect, useState } from 'react';
 import { useLocalStorage } from './useLocalStorage';
 
 export function useUIState({ canvasRef, skillTreeRef }) {
@@ -55,7 +55,7 @@ export function useUIState({ canvasRef, skillTreeRef }) {
   const openBulkTagModal = useCallback(() => setBulkTagModalOpen(true), []);
   const closeBulkTagModal = useCallback(() => setBulkTagModalOpen(false), []);
   const handleToggleSidebar = useCallback(() => setSidebarOpen((o) => !o), [setSidebarOpen]);
-  const handleToggleHideMaxScore = useCallback(() => setHideMaxScore((v) => !v), [setHideMaxScore]);
+  const handleToggleHideMaxScore = useCallback(() => startTransition(() => setHideMaxScore((v) => !v)), [setHideMaxScore]);
   const handleToggleShowGrid = useCallback(() => setShowGrid((v) => !v), [setShowGrid]);
   const handleToggleSnapMode = useCallback(() => setSnapMode((v) => !v), [setSnapMode]);
 
@@ -82,7 +82,7 @@ export function useUIState({ canvasRef, skillTreeRef }) {
         st.autoLayout();
       } else if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'h' || e.key === 'H')) {
         e.preventDefault();
-        setHideMaxScore((v) => !v);
+        startTransition(() => setHideMaxScore((v) => !v));
       } else if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
         setShortcutsHelpOpen((o) => !o);
       } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {

@@ -13,25 +13,10 @@ function loadData() {
   return defaultData;
 }
 
-// Stable sentinel so the empty-Map initial state never leaks into comparisons
+// Stable sentinels so initial state never leaks into comparisons
 const EMPTY_MAP = new Map();
-
-function toReactFlowEdges(edges, edgeStyles) {
-  return edges.map((edge) => {
-    const style = edgeStyles[edge.type || DEFAULT_EDGE_TYPE] ?? { stroke: 'solid', color: '#888' };
-    return {
-      id: edge.id,
-      source: edge.from,
-      target: edge.to,
-      type: 'customBezier',
-      interactionWidth: 20,
-      style: {
-        stroke: style.color,
-        strokeDasharray: style.stroke === 'dashed' ? '6 6' : '0',
-      },
-    };
-  });
-}
+const EMPTY_SET = new Set();
+const FALLBACK_EDGE_STYLE = { stroke: 'solid', color: '#888' };
 
 export function useSkillTree(gistConfig = null, hideMaxScore = false) {
   const [data, setData] = useState(loadData);
@@ -112,20 +97,20 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
     () =>
       hideMaxScore
         ? new Set(data.nodes.filter((n) => n.score === 10).map((n) => n.id))
-        : new Set(),
+        : EMPTY_SET,
     [data.nodes, hideMaxScore],
   );
 
   const flowNodes = useMemo(() => {
     const prev = prevFlowNodesRef.current;
     const nextPrev = new Map();
-    const nodes = hideMaxScore ? data.nodes.filter((n) => !hiddenNodeIds.has(n.id)) : data.nodes;
-    const result = nodes.map((node) => {
+    const result = data.nodes.map((node) => {
       const tagColors = node.tags?.map((t) => data.tag_styles[t]?.color ?? '#555') ?? [];
       const tagColor = tagColors[0] ?? '#555';
       const tagColorKey = tagColors.join('\0');
+      const hidden = hiddenNodeIds.has(node.id);
       const cached = prev.get(node.id);
-      if (cached && cached.source === node && cached.tagColorKey === tagColorKey) {
+      if (cached && cached.source === node && cached.tagColorKey === tagColorKey && cached.hidden === hidden) {
         nextPrev.set(node.id, cached);
         return cached.wrapper;
       }
@@ -133,24 +118,48 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
         id: node.id,
         type: 'skillNode',
         position: node.position,
+        hidden,
         data: { ...node, tagColor, tagColors },
       };
-      nextPrev.set(node.id, { source: node, tagColorKey, wrapper });
+      nextPrev.set(node.id, { source: node, tagColorKey, hidden, wrapper });
       return wrapper;
     });
     prevFlowNodesRef.current = nextPrev;
     return result;
   }, [data.nodes, data.tag_styles, hiddenNodeIds]);
 
-  const flowEdges = useMemo(
-    () => toReactFlowEdges(
-      hideMaxScore
-        ? data.edges.filter((e) => !hiddenNodeIds.has(e.from) && !hiddenNodeIds.has(e.to))
-        : data.edges,
-      data.edge_styles,
-    ),
-    [data.edges, data.edge_styles, hiddenNodeIds],
-  );
+  const prevFlowEdgesRef = useRef(EMPTY_MAP);
+
+  const flowEdges = useMemo(() => {
+    const prev = prevFlowEdgesRef.current;
+    const nextPrev = new Map();
+    const hasHidden = hiddenNodeIds.size > 0;
+    const result = data.edges.map((edge) => {
+      const style = data.edge_styles[edge.type || DEFAULT_EDGE_TYPE] ?? FALLBACK_EDGE_STYLE;
+      const hidden = hasHidden && (hiddenNodeIds.has(edge.from) || hiddenNodeIds.has(edge.to));
+      const cached = prev.get(edge.id);
+      if (cached && cached.source === edge && cached.styleRef === style && cached.hidden === hidden) {
+        nextPrev.set(edge.id, cached);
+        return cached.wrapper;
+      }
+      const wrapper = {
+        id: edge.id,
+        source: edge.from,
+        target: edge.to,
+        type: 'customBezier',
+        hidden,
+        interactionWidth: 20,
+        style: {
+          stroke: style.color,
+          strokeDasharray: style.stroke === 'dashed' ? '6 6' : '0',
+        },
+      };
+      nextPrev.set(edge.id, { source: edge, styleRef: style, hidden, wrapper });
+      return wrapper;
+    });
+    prevFlowEdgesRef.current = nextPrev;
+    return result;
+  }, [data.edges, data.edge_styles, hiddenNodeIds]);
 
   // --- Node actions ---
 
