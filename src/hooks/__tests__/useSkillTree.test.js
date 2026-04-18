@@ -345,13 +345,11 @@ describe('useSkillTree — derived state', () => {
     expect(fe.type).toBe('customBezier');
   });
 
-  it('hides score=10 nodes when hideMaxScore is true', () => {
+  it('filters out score=10 nodes when hideMaxScore is true', () => {
     const { result } = seedAndRender(true);
-    const hiddenNode = result.current.flowNodes.find((n) => n.id === 'n3');
-    expect(hiddenNode.hidden).toBe(true);
-    // Edge e2 (n2→n3) should also be hidden
-    const hiddenEdge = result.current.flowEdges.find((e) => e.id === 'e2');
-    expect(hiddenEdge.hidden).toBe(true);
+    expect(result.current.flowNodes.find((n) => n.id === 'n3')).toBeUndefined();
+    expect(result.current.flowNodes).toHaveLength(2);
+    expect(result.current.flowEdges.find((e) => e.id === 'e2')).toBeUndefined();
   });
 
   it('selectedNode returns single selected node', () => {

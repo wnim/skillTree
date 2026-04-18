@@ -1,6 +1,5 @@
 import { memo, useContext, useState } from 'react';
 import { Handle } from '@xyflow/react';
-import { Paper, Text, Progress } from '@mantine/core';
 import { scoreColor } from '../utils/score';
 import { HoverSetContext } from './HoverContext';
 
@@ -37,38 +36,40 @@ export const SkillNode = memo(function SkillNode({ id, data, selected }) {
     ? '0 0 0 2px #00d4ff, 0 0 18px 6px rgba(0, 212, 255, 0.55), 0 0 40px 12px rgba(0, 212, 255, 0.25)'
     : undefined;
 
+  const bg = selected || isEditing
+    ? 'var(--mantine-color-dark-7)'
+    : 'var(--mantine-color-dark-8)';
+
   return (
     <div style={{ position: 'relative', display: 'inline-block', borderRadius: 10, boxShadow: gradientBorder ? boxShadow : undefined }}>
       {gradientBorder && (
         <div style={{ position: 'absolute', inset: -2, background: gradientBorder, borderRadius: 10 }} />
       )}
-      <Paper
-        p={6}
+      <div
+        className="skill-node"
         onMouseEnter={() => { setHovered(true); setHoveredNodeId(id); }}
         onMouseLeave={() => { setHovered(false); setHoveredNodeId(null); }}
         style={{
           position: 'relative',
           zIndex: gradientBorder ? 1 : undefined,
-          width: 180,
           border: gradientBorder ? 'none' : `2px solid ${borderColor}`,
           boxShadow: gradientBorder ? undefined : boxShadow,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 3,
+          background: bg,
         }}
-        bg={selected || isEditing ? 'dark.7' : 'dark.8'}
-        radius="md"
       >
         <Handle type="target" position="top" className="handle" />
-        <Text size="xs" fw={600} c="gray.1" lh={1.2}>{label}</Text>
-        <Progress
-          value={percent}
-          size={4}
-          radius="xl"
-          color={score == null ? 'dark.5' : scoreColor(score)}
-        />
+        <div className="skill-node__label">{label}</div>
+        <div className="skill-node__track">
+          <div
+            className="skill-node__bar"
+            style={{
+              width: `${percent}%`,
+              background: score == null ? 'var(--mantine-color-dark-5)' : scoreColor(score),
+            }}
+          />
+        </div>
         <Handle type="source" position="bottom" className="handle" />
-      </Paper>
+      </div>
     </div>
   );
 });

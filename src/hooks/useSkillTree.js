@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { defaultData, DEFAULT_EDGE_TYPE, DATA_KEY } from '../data/defaultData';
+import { defaultData, DEFAULT_EDGE_TYPE, DATA_KEY, SAVE_PENDING_KEY } from '../data/defaultData';
 import { tidyLayout } from '../utils/layout';
-import { fetchGistData, saveGistData } from '../utils/gist';
+import { fetchGistData, saveGistData, saveGistDataKeepalive } from '../utils/gist';
 
 function loadData() {
   try {
@@ -22,11 +22,20 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
   const [data, setData] = useState(loadData);
   const [syncStatus, setSyncStatus] = useState(gistConfig?.gistId ? 'loading' : 'idle');
   const [clipboard, setClipboard] = useState({ nodes: [], edges: [] });
+  const [pendingSave, setPendingSave] = useState(false);
   const saveTimeoutRef = useRef(null);
-  const isFirstRender = useRef(true);
+  const lastSyncedDataRef = useRef(data);
   const pastRef = useRef([]);
   const futureRef = useRef([]);
   const MAX_HISTORY = 50;
+
+  // Read and consume the pending-save flag synchronously (before effects).
+  // Stored in a ref so it survives React strict-mode double-mount.
+  const pendingSaveOnMount = useRef(undefined);
+  if (pendingSaveOnMount.current === undefined) {
+    pendingSaveOnMount.current = !!localStorage.getItem(SAVE_PENDING_KEY);
+    localStorage.removeItem(SAVE_PENDING_KEY);
+  }
 
   // (1) Always mirror to localStorage for offline fallback
   useEffect(() => {
@@ -37,32 +46,79 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!gistConfig?.gistId) return;
-    fetchGistData(gistConfig.gistId, gistConfig.token)
-      .then(({ data: gistData }) => {
-        setData(gistData);
-        setSyncStatus('idle');
-      })
-      .catch(() => setSyncStatus('error'));
+    let ignore = false;
+
+    if (pendingSaveOnMount.current) {
+      // A keepalive PATCH is already in-flight from before refresh.
+      // Don't fetch (would return stale data) or PATCH (would 409 conflict).
+      // Trust localStorage (always correct) and the keepalive (handles Gist sync).
+      setSyncStatus('idle');
+    } else {
+      fetchGistData(gistConfig.gistId, gistConfig.token)
+        .then(({ data: gistData }) => {
+          if (ignore) return;
+          lastSyncedDataRef.current = gistData;
+          setData(gistData);
+          setSyncStatus('idle');
+        })
+        .catch(() => { if (!ignore) setSyncStatus('error'); });
+    }
+
+    return () => { ignore = true; };
   }, []);
 
-  // (3) Debounced auto-save to Gist on every data change (skip initial render)
+  // (3) Debounced auto-save to Gist on every data change
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
+    if (data === lastSyncedDataRef.current) return;
     if (!gistConfig?.gistId) return;
 
     clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
+      saveTimeoutRef.current = null;
+      lastSyncedDataRef.current = data;
+      setPendingSave(false);
       setSyncStatus('saving');
       saveGistData(gistConfig.gistId, gistConfig.filename, data, gistConfig.token)
         .then(() => setSyncStatus('idle'))
         .catch(() => setSyncStatus('error'));
     }, 60000);
-    return () => clearTimeout(saveTimeoutRef.current);
+    setPendingSave(true);
+    return () => {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+      setPendingSave(false);
+    };
   }, [data, gistConfig]);
+
+  // Ref mirror of gistConfig for use in visibilitychange handler (avoids stale closures)
+  const gistConfigRef = useRef(gistConfig);
+  useEffect(() => { gistConfigRef.current = gistConfig; }, [gistConfig]);
+
+  // (4) Flush pending Gist save when page becomes hidden (tab close/switch/minimize/refresh)
+  useEffect(() => {
+    const flushPendingSave = () => {
+      if (!saveTimeoutRef.current) return;
+      const cfg = gistConfigRef.current;
+      if (!cfg?.gistId) return;
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+      setPendingSave(false);
+      lastSyncedDataRef.current = dataRef.current;
+      localStorage.setItem(SAVE_PENDING_KEY, '1');
+      saveGistDataKeepalive(cfg.gistId, cfg.filename, dataRef.current, cfg.token);
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') flushPendingSave();
+    };
+    const handleBeforeUnload = () => flushPendingSave();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
 
   // Cache for toReactFlowNodes: preserves wrapper object identity when source node is unchanged.
   // Keyed by node id → { source (data node ref), tagColor, wrapper (ReactFlow node object) }
@@ -104,26 +160,27 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
   const flowNodes = useMemo(() => {
     const prev = prevFlowNodesRef.current;
     const nextPrev = new Map();
-    const result = data.nodes.map((node) => {
+    const result = [];
+    for (const node of data.nodes) {
+      if (hiddenNodeIds.has(node.id)) continue;
       const tagColors = node.tags?.map((t) => data.tag_styles[t]?.color ?? '#555') ?? [];
       const tagColor = tagColors[0] ?? '#555';
       const tagColorKey = tagColors.join('\0');
-      const hidden = hiddenNodeIds.has(node.id);
       const cached = prev.get(node.id);
-      if (cached && cached.source === node && cached.tagColorKey === tagColorKey && cached.hidden === hidden) {
+      if (cached && cached.source === node && cached.tagColorKey === tagColorKey) {
         nextPrev.set(node.id, cached);
-        return cached.wrapper;
+        result.push(cached.wrapper);
+        continue;
       }
       const wrapper = {
         id: node.id,
         type: 'skillNode',
         position: node.position,
-        hidden,
         data: { ...node, tagColor, tagColors },
       };
-      nextPrev.set(node.id, { source: node, tagColorKey, hidden, wrapper });
-      return wrapper;
-    });
+      nextPrev.set(node.id, { source: node, tagColorKey, wrapper });
+      result.push(wrapper);
+    }
     prevFlowNodesRef.current = nextPrev;
     return result;
   }, [data.nodes, data.tag_styles, hiddenNodeIds]);
@@ -134,29 +191,30 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
     const prev = prevFlowEdgesRef.current;
     const nextPrev = new Map();
     const hasHidden = hiddenNodeIds.size > 0;
-    const result = data.edges.map((edge) => {
+    const result = [];
+    for (const edge of data.edges) {
+      if (hasHidden && (hiddenNodeIds.has(edge.from) || hiddenNodeIds.has(edge.to))) continue;
       const style = data.edge_styles[edge.type || DEFAULT_EDGE_TYPE] ?? FALLBACK_EDGE_STYLE;
-      const hidden = hasHidden && (hiddenNodeIds.has(edge.from) || hiddenNodeIds.has(edge.to));
       const cached = prev.get(edge.id);
-      if (cached && cached.source === edge && cached.styleRef === style && cached.hidden === hidden) {
+      if (cached && cached.source === edge && cached.styleRef === style) {
         nextPrev.set(edge.id, cached);
-        return cached.wrapper;
+        result.push(cached.wrapper);
+        continue;
       }
       const wrapper = {
         id: edge.id,
         source: edge.from,
         target: edge.to,
         type: 'customBezier',
-        hidden,
         interactionWidth: 20,
         style: {
           stroke: style.color,
           strokeDasharray: style.stroke === 'dashed' ? '6 6' : '0',
         },
       };
-      nextPrev.set(edge.id, { source: edge, styleRef: style, hidden, wrapper });
-      return wrapper;
-    });
+      nextPrev.set(edge.id, { source: edge, styleRef: style, wrapper });
+      result.push(wrapper);
+    }
     prevFlowEdgesRef.current = nextPrev;
     return result;
   }, [data.edges, data.edge_styles, hiddenNodeIds]);
@@ -440,6 +498,19 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
     URL.revokeObjectURL(url);
   }, []);
 
+  const saveNow = useCallback(() => {
+    const cfg = gistConfigRef.current;
+    if (!cfg?.gistId) return;
+    clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = null;
+    lastSyncedDataRef.current = dataRef.current;
+    setPendingSave(false);
+    setSyncStatus('saving');
+    saveGistData(cfg.gistId, cfg.filename, dataRef.current, cfg.token)
+      .then(() => setSyncStatus('idle'))
+      .catch(() => setSyncStatus('error'));
+  }, []);
+
   return {
     data,
     syncStatus,
@@ -473,5 +544,7 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
     autoLayout,
     importData,
     exportData,
+    saveNow,
+    pendingSave,
   };
 }

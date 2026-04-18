@@ -7,6 +7,7 @@ export function useUIState({ canvasRef, skillTreeRef }) {
   const [hideMaxScore, setHideMaxScore] = useLocalStorage('psskill_ui_hidemaxscore', false);
   const [showGrid, setShowGrid] = useLocalStorage('psskill_ui_showgrid', false);
   const [snapMode, setSnapMode] = useLocalStorage('psskill_ui_snapmode', false);
+  const [showTagLegend, setShowTagLegend] = useLocalStorage('psskill_ui_taglegend', false);
   const [activeTab, setActiveTab] = useState('inspector');
   const [gistModalOpen, setGistModalOpen] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
@@ -58,6 +59,7 @@ export function useUIState({ canvasRef, skillTreeRef }) {
   const handleToggleHideMaxScore = useCallback(() => startTransition(() => setHideMaxScore((v) => !v)), [setHideMaxScore]);
   const handleToggleShowGrid = useCallback(() => setShowGrid((v) => !v), [setShowGrid]);
   const handleToggleSnapMode = useCallback(() => setSnapMode((v) => !v), [setSnapMode]);
+  const handleToggleTagLegend = useCallback(() => setShowTagLegend((v) => !v), [setShowTagLegend]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -119,6 +121,8 @@ export function useUIState({ canvasRef, skillTreeRef }) {
     handleToggleShowGrid,
     snapMode,
     handleToggleSnapMode,
+    showTagLegend,
+    handleToggleTagLegend,
     bulkTagModalOpen,
     openBulkTagModal,
     closeBulkTagModal,

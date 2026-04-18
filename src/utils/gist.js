@@ -37,6 +37,16 @@ export async function saveGistData(gistId, filename, data, token) {
   }
 }
 
+/** Fire-and-forget Gist save that survives page death via keepalive. */
+export function saveGistDataKeepalive(gistId, filename, data, token) {
+  fetch(`${GIST_API}/${gistId}`, {
+    method: 'PATCH',
+    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ files: { [filename]: { content: JSON.stringify(data, null, 2) } } }),
+    keepalive: true,
+  });
+}
+
 /** Extracts the gist ID from a full URL or returns the input as-is. */
 export function extractGistId(input) {
   const cleaned = input.trim().replace(/\/$/, '');

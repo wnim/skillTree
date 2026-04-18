@@ -1,6 +1,7 @@
 export const DEFAULT_EDGE_TYPE = 'prerequisite';
 export const VIEWPORT_KEY = 'psskill_viewport';
 export const DATA_KEY = 'psskill_data';
+export const SAVE_PENDING_KEY = 'psskill_save_pending';
 export const GIST_CONFIG_KEY = 'psskill_gist_config';
 // Register a GitHub OAuth App at https://github.com/settings/developers and paste the Client ID here.
 // Enable "Device Flow" in the app settings. Leave empty to fall back to manual PAT entry.

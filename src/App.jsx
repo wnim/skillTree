@@ -6,6 +6,7 @@ import { Canvas } from './components/Canvas';
 import { Sidebar } from './components/Sidebar';
 import { GistSetupModal } from './components/GistSetupModal';
 import { KeyboardShortcutsHelp } from './components/KeyboardShortcutsHelp';
+import { TagLegend } from './components/TagLegend';
 import { BulkTagModal } from './components/BulkTagModal';
 import { useSkillTree } from './hooks/useSkillTree';
 import { useGistConfig } from './hooks/useGistConfig';
@@ -109,6 +110,8 @@ function App() {
           sidebarOpen={ui.sidebarOpen}
           guestMode={!config || !config.gistId}
           onOpenTreeManager={() => ui.setTreeManagerOpen(true)}
+          onSaveNow={skillTree.saveNow}
+          pendingSave={skillTree.pendingSave}
         />
         <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
           <ActionBar
@@ -122,6 +125,8 @@ function App() {
             onToggleHideMaxScore={ui.handleToggleHideMaxScore}
             multiSelectCount={skillTree.selectedIds.size}
             onEditTags={ui.openBulkTagModal}
+            showTagLegend={ui.showTagLegend}
+            onToggleTagLegend={ui.handleToggleTagLegend}
           />
           <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
             <Canvas
@@ -134,6 +139,7 @@ function App() {
               snapMode={ui.snapMode}
             />
             <KeyboardShortcutsHelp open={ui.shortcutsHelpOpen} onToggle={() => ui.setShortcutsHelpOpen(o => !o)} />
+            <TagLegend tagStyles={skillTree.data.tag_styles} visible={ui.showTagLegend} />
           </div>
           <div style={{
             width: ui.sidebarOpen ? 320 : 0,

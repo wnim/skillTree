@@ -113,6 +113,10 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
 
   // Edge sync: fires when edge data or the selected edge changes.
   useEffect(() => {
+    if (!selectedEdgeId) {
+      setEdges(flowEdges);
+      return;
+    }
     setEdges(flowEdges.map((e) =>
       e.id === selectedEdgeId
         ? { ...e, style: { ...e.style, stroke: 'orange' } }
@@ -423,6 +427,7 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
           selectionMode={SelectionMode.Partial}
           multiSelectionKeyCode={['Shift', 'Control']}
           zoomOnDoubleClick={false}
+          minZoom={0.1}
           fitView={!savedViewport.current}
           proOptions={{ hideAttribution: true }}
         >

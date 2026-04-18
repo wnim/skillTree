@@ -25,6 +25,36 @@ body {
   opacity: 1;
 }
 
+/* SkillNode — lightweight replacement for Mantine Paper/Text/Progress */
+.skill-node {
+  width: 180px;
+  padding: 6px;
+  border-radius: var(--mantine-radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.skill-node__label {
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 600;
+  color: var(--mantine-color-gray-1);
+  line-height: 1.2;
+}
+
+.skill-node__track {
+  height: 4px;
+  border-radius: var(--mantine-radius-xl);
+  background: var(--mantine-color-dark-4);
+  overflow: hidden;
+}
+
+.skill-node__bar {
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.15s ease;
+}
+
 .react-flow__pane {
   cursor: grab;
 }
