@@ -127,13 +127,14 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
   const [editingId, setEditingId] = useState(null);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
 
-  // Refs for reading current values inside stable callbacks without capturing them as deps
+  // Refs for reading current values inside stable callbacks without capturing them as deps.
+  // Assigned during render (not in useEffect) so they are always current before the next event fires.
   const selectedIdsRef = useRef(selectedIds);
-  useEffect(() => { selectedIdsRef.current = selectedIds; }, [selectedIds]);
+  selectedIdsRef.current = selectedIds;
   const clipboardRef = useRef(clipboard);
-  useEffect(() => { clipboardRef.current = clipboard; }, [clipboard]);
+  clipboardRef.current = clipboard;
   const dataRef = useRef(data);
-  useEffect(() => { dataRef.current = data; }, [data]);
+  dataRef.current = data;
 
   const updateData = useCallback((partialOrFn) => {
     setData((prev) => {
@@ -457,8 +458,18 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
   // --- Layout ---
 
   const autoLayout = useCallback(() => {
-    updateData((prev) => ({ nodes: tidyLayout(prev.nodes) }));
-  }, [updateData]);
+    setData((prev) => {
+      const newNodes = tidyLayout(prev.nodes);
+      const changed = newNodes.some((n, i) =>
+        n.position.x !== prev.nodes[i].position.x ||
+        n.position.y !== prev.nodes[i].position.y,
+      );
+      if (!changed) return prev;
+      pastRef.current = [...pastRef.current.slice(-(MAX_HISTORY - 1)), prev];
+      futureRef.current = [];
+      return { ...prev, nodes: newNodes };
+    });
+  }, []);
 
   // --- Undo / Redo ---
 

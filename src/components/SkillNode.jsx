@@ -28,12 +28,12 @@ export const SkillNode = memo(function SkillNode({ id, data, selected }) {
     ? 'var(--mantine-color-blue-8)'
     : tagColor || 'var(--mantine-color-dark-4)';
 
+  const glowShadow = '0 0 0 2px #00d4ff, 0 0 18px 6px rgba(0, 212, 255, 0.55), 0 0 40px 12px rgba(0, 212, 255, 0.25)';
+
   const boxShadow = isEditing
     ? '0 0 0 3px var(--mantine-color-blue-5), 0 0 18px 2px rgba(91, 156, 246, 0.35)'
-    : selected
-    ? '0 0 0 2px var(--mantine-color-blue-8)'
-    : hovered
-    ? '0 0 0 2px #00d4ff, 0 0 18px 6px rgba(0, 212, 255, 0.55), 0 0 40px 12px rgba(0, 212, 255, 0.25)'
+    : selected || hovered
+    ? glowShadow
     : undefined;
 
   const bg = selected || isEditing

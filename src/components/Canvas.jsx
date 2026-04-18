@@ -393,10 +393,18 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
     reactFlowInstance.setCenter(flowPt.x, flowPt.y, { zoom, duration: 200 });
   }, [reactFlowInstance]);
 
-  useImperativeHandle(ref, () => ({ fitView, getViewportCenter, zoomIn, zoomOut, panBy }), [fitView, getViewportCenter, zoomIn, zoomOut, panBy]);
+  const focusNode = useCallback((nodeId) => {
+    if (!reactFlowInstance) return;
+    const node = nodesRef.current.find((n) => n.id === nodeId);
+    if (!node) return;
+    const { zoom } = reactFlowInstance.getViewport();
+    reactFlowInstance.setCenter(node.position.x + 90, node.position.y + 21, { zoom, duration: 300 });
+  }, [reactFlowInstance]);
+
+  useImperativeHandle(ref, () => ({ fitView, getViewportCenter, zoomIn, zoomOut, panBy, focusNode }), [fitView, getViewportCenter, zoomIn, zoomOut, panBy, focusNode]);
 
   return (
-    <HoverProvider>
+    <HoverProvider selectedIds={selectedIds}>
     <div ref={containerRef} style={{ position: 'relative', height: '100%' }}>
       <ReactFlowProvider>
         <ReactFlow

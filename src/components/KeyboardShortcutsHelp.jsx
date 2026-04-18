@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Paper, Text, Stack, Group, Kbd, Divider, ActionIcon } from '@mantine/core';
-import { CircleHelp } from 'lucide-react';
+import { Paper, Text, Stack, Group, Kbd } from '@mantine/core';
 
 const SHORTCUT_TOPICS = [
   {
@@ -71,26 +70,7 @@ export function KeyboardShortcutsHelp({ open, onToggle }) {
 
   return (
     <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 10, pointerEvents: 'none' }}>
-      {/* ? icon — always visible when panel is closed */}
-      <ActionIcon
-        variant="subtle"
-        color="gray"
-        size="lg"
-        onClick={onToggle}
-        aria-label="Keyboard shortcuts"
-        style={{
-          position: 'absolute',
-          top: 0,
-          right: 0,
-          opacity: open ? 0 : 1,
-          pointerEvents: open ? 'none' : 'auto',
-          transition: 'opacity 0.15s ease',
-        }}
-      >
-        <CircleHelp size={20} />
-      </ActionIcon>
-
-      {/* Shortcuts panel — pops from the icon */}
+      {/* Shortcuts panel — pops from the top right */}
       <Paper
         ref={panelRef}
         shadow="lg"

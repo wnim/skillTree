@@ -3,6 +3,7 @@ export const NODE_HEIGHT = 42;
 export const GRID_X = NODE_WIDTH + 8;    // horizontal grid cell size
 export const GRID_Y = NODE_HEIGHT + 40;  // vertical grid cell size
 export const STAGGER = GRID_X / 2;       // odd rows are shifted right by this amount
+const DOUBLE_GRID_Y = 2 * GRID_Y;       // background pattern repeats every two rows
 
 /** Returns the pixel X origin for a given row (staggered grid). */
 export function rowOriginX(baseX, row) {
@@ -24,7 +25,8 @@ export function tidyLayout(nodes) {
       ? n : best
   );
   const originX = Math.round(anchor.position.x / GRID_X) * GRID_X;
-  const originY = Math.round(anchor.position.y / GRID_Y) * GRID_Y;
+  // Snap to even multiples of GRID_Y so row parity matches the background stagger pattern
+  const originY = Math.round(anchor.position.y / DOUBLE_GRID_Y) * DOUBLE_GRID_Y;
 
   const occupied = new Map(); // "col,row" → node id
 
@@ -103,7 +105,8 @@ export function snapToGrid(position, allNodes, excludeId) {
         ? n : best
     );
     originX = Math.round(anchor.position.x / GRID_X) * GRID_X;
-    originY = Math.round(anchor.position.y / GRID_Y) * GRID_Y;
+    // Snap to even multiples of GRID_Y so row parity matches the background stagger pattern
+    originY = Math.round(anchor.position.y / DOUBLE_GRID_Y) * DOUBLE_GRID_Y;
   }
 
   // Build occupied cell set from other nodes

@@ -6,7 +6,6 @@ import {
   CirclePlus,
   EyeOff,
   Tag,
-  Palette,
 } from 'lucide-react';
 
 const ACTIONS = [
@@ -17,7 +16,6 @@ const ACTIONS = [
   { key: 'hideMastered',  Icon: EyeOff,      label: 'Hide mastered (max score) nodes',  toggle: true  },
   { key: 'sep1',          divider: true                                                              },
   { key: 'editTags',      Icon: Tag,         label: 'Edit tags for selected nodes',     toggle: false },
-  { key: 'tagLegend',     Icon: Palette,     label: 'Show tag legend',                  toggle: true  },
 ];
 
 const styles = {
@@ -84,7 +82,7 @@ function ActionButton({ Icon, label, onClick, active = false, disabled = false }
   );
 }
 
-export function ActionBar({ onAddNode, showGrid, onToggleShowGrid, snapMode, onToggleSnapMode, onAutoLayout, hideMaxScore, onToggleHideMaxScore, multiSelectCount, onEditTags, showTagLegend, onToggleTagLegend }) {
+export function ActionBar({ onAddNode, showGrid, onToggleShowGrid, snapMode, onToggleSnapMode, onAutoLayout, hideMaxScore, onToggleHideMaxScore, multiSelectCount, onEditTags }) {
   const handlers = {
     addNode:      { onClick: onAddNode,              active: false,                        disabled: false                  },
     showGrid:     { onClick: onToggleShowGrid,       active: showGrid,                     disabled: false                  },
@@ -92,7 +90,6 @@ export function ActionBar({ onAddNode, showGrid, onToggleShowGrid, snapMode, onT
     tidy:         { onClick: onAutoLayout,           active: false,                        disabled: false                  },
     hideMastered: { onClick: onToggleHideMaxScore,   active: hideMaxScore,                 disabled: false                  },
     editTags:     { onClick: onEditTags,             active: false,                        disabled: multiSelectCount < 1   },
-    tagLegend:    { onClick: onToggleTagLegend,      active: showTagLegend,                disabled: false                  },
   };
 
   return (

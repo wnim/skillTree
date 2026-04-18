@@ -1,6 +1,10 @@
 {
   "chat.tools.terminal.autoApprove": {
     "npx vite": true,
-    "nvm": true
+    "nvm": true,
+    "/^cd /home/nimw/experiments/skillTree && node -e \"\nconst src = require\\('fs'\\)\\.readFileSync\\('node_modules/@xyflow/react/dist/esm/index\\.mjs','utf8'\\);\nconst idx = src\\.indexOf\\('useViewportHelper'\\);\nconst chunk = src\\.slice\\(idx, idx\\+3000\\);\nconst panIdx = chunk\\.indexOf\\('panBy'\\);\nconsole\\.log\\(chunk\\.slice\\(Math\\.max\\(0,panIdx-200\\), panIdx\\+200\\)\\);\n\"$/": {
+      "approve": true,
+      "matchCommandLine": true
+    }
   }
 }

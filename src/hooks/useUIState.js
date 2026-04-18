@@ -12,6 +12,7 @@ export function useUIState({ canvasRef, skillTreeRef }) {
   const [gistModalOpen, setGistModalOpen] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   const [bulkTagModalOpen, setBulkTagModalOpen] = useState(false);
+  const [statisticsOpen, setStatisticsOpen] = useState(false);
 
   const handleAddNode = useCallback(() => {
     const center = canvasRef.current?.getViewportCenter() ?? { x: 200, y: 120 };
@@ -60,6 +61,7 @@ export function useUIState({ canvasRef, skillTreeRef }) {
   const handleToggleShowGrid = useCallback(() => setShowGrid((v) => !v), [setShowGrid]);
   const handleToggleSnapMode = useCallback(() => setSnapMode((v) => !v), [setSnapMode]);
   const handleToggleTagLegend = useCallback(() => setShowTagLegend((v) => !v), [setShowTagLegend]);
+  const handleToggleStatistics = useCallback(() => setStatisticsOpen((o) => !o), []);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -128,5 +130,8 @@ export function useUIState({ canvasRef, skillTreeRef }) {
     closeBulkTagModal,
     treeManagerOpen,
     setTreeManagerOpen,
+    statisticsOpen,
+    setStatisticsOpen,
+    handleToggleStatistics,
   };
 }
