@@ -9,18 +9,12 @@ export const HoverIdContext = createContext(null);
 // Stable setter — value never changes so consumers never re-render from it.
 export const HoverSetContext = createContext(() => {});
 
-// Edges also glow when their source or target node is selected.
-const EMPTY_SET = new Set();
-export const SelectedIdsContext = createContext(EMPTY_SET);
-
-export function HoverProvider({ selectedIds = EMPTY_SET, children }) {
+export function HoverProvider({ children }) {
   const [hoveredNodeId, setHoveredNodeId] = useState(null);
   return (
     <HoverSetContext.Provider value={setHoveredNodeId}>
       <HoverIdContext.Provider value={hoveredNodeId}>
-        <SelectedIdsContext.Provider value={selectedIds}>
-          {children}
-        </SelectedIdsContext.Provider>
+        {children}
       </HoverIdContext.Provider>
     </HoverSetContext.Provider>
   );

@@ -55,7 +55,7 @@ export function Toolbar({ syncStatus, onToggleSidebar, sidebarOpen, guestMode, o
           </ActionIcon>
         </Tooltip>
         <Tooltip label="Keyboard shortcuts" openDelay={400}>
-          <ActionIcon variant={shortcutsHelpOpen ? 'filled' : 'subtle'} color={shortcutsHelpOpen ? 'blue' : 'gray'} size="md" onClick={onToggleShortcutsHelp}>
+          <ActionIcon data-shortcuts-trigger variant={shortcutsHelpOpen ? 'filled' : 'subtle'} color={shortcutsHelpOpen ? 'blue' : 'gray'} size="md" onClick={onToggleShortcutsHelp}>
             <CircleHelp size={16} />
           </ActionIcon>
         </Tooltip>

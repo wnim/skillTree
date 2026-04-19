@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
-import { Paper, Text, Group, Stack, Progress } from '@mantine/core';
+import { Divider, Paper, Progress, Text, Group, Stack } from '@mantine/core';
 import { scoreColor } from '../utils/score';
+import { computeBasicStats, computeInvestmentValue } from '../utils/statistics';
 
 const STAT_VALUE_STYLE = { fontVariantNumeric: 'tabular-nums' };
 
@@ -108,9 +109,13 @@ function ScoreBar({ scores }) {
     { value: (buckets[3] / total) * 100, color: scoreColor(8) },
     { value: (buckets[4] / total) * 100, color: scoreColor(10) },
   ];
-  return <Progress.Root size="sm" radius="xl">{sections.map((s, i) => (
-    <Progress.Section key={i} value={s.value} color={s.color} />
-  ))}</Progress.Root>;
+  return (
+    <Progress.Root size="sm" radius="xl">
+      {sections.filter((s) => s.value > 0).map((s, i) => (
+        <Progress.Section key={i} value={s.value} color={s.color} />
+      ))}
+    </Progress.Root>
+  );
 }
 
 export function StatisticsPanel({ data, visible, onFocusNode }) {
@@ -119,9 +124,7 @@ export function StatisticsPanel({ data, visible, onFocusNode }) {
     const scoredNodes = nodes.filter((n) => n.score != null);
     const scores = scoredNodes.map((n) => n.score);
     const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : null;
-    const mastered = nodes.filter((n) => n.score === 10).length;
-    const notAttempted = nodes.filter((n) => n.score == null).length;
-    const inProgress = nodes.length - mastered - notAttempted;
+    const { mastered, inProgress, notAttempted } = computeBasicStats(nodes);
     const completion = nodes.length > 0 ? (mastered / nodes.length) * 100 : 0;
     const depth = computeGraphDepth(nodes, edges);
     const components = computeConnectedComponents(nodes, edges);
@@ -129,8 +132,9 @@ export function StatisticsPanel({ data, visible, onFocusNode }) {
     const tagCounts = {};
     for (const n of nodes) for (const t of (n.tags ?? [])) tagCounts[t] = (tagCounts[t] || 0) + 1;
     const tagsUsed = Object.keys(tagCounts).length;
+    const bestInvestment = computeInvestmentValue(nodes, edges);
 
-    return { nodes: nodes.length, edges: edges.length, avgScore, mastered, notAttempted, inProgress, completion, depth, components, hub, tagsUsed, scores };
+    return { nodes: nodes.length, edges: edges.length, avgScore, mastered, notAttempted, inProgress, completion, depth, components, hub, tagsUsed, scores, bestInvestment };
   }, [data]);
 
   return (
@@ -150,7 +154,7 @@ export function StatisticsPanel({ data, visible, onFocusNode }) {
         <StatRow label="Graph depth" value={stats.depth} />
         <StatRow label="Sub-graphs" value={stats.components} />
 
-        <div style={{ height: 1, background: 'var(--mantine-color-dark-5)', margin: '2px 0' }} />
+        <Divider />
 
         <StatRow label="Mastered" value={stats.mastered} color="teal" />
         <StatRow label="In progress" value={stats.inProgress} color="blue" />
@@ -166,17 +170,17 @@ export function StatisticsPanel({ data, visible, onFocusNode }) {
         />
 
         {stats.scores.length > 0 && (
-          <>
-            <Text size="xs" c="dimmed" mt={2}>Score distribution</Text>
+          <Stack gap={2}>
+            <Text size="xs" c="dimmed">Score distribution</Text>
             <ScoreBar scores={stats.scores} />
             <Group justify="space-between" gap={0}>
-              <Text size={9} c="dimmed">0</Text>
-              <Text size={9} c="dimmed">10</Text>
+              <Text size="xs" c="dimmed" lh={1}>0</Text>
+              <Text size="xs" c="dimmed" lh={1}>10</Text>
             </Group>
-          </>
+          </Stack>
         )}
 
-        <div style={{ height: 1, background: 'var(--mantine-color-dark-5)', margin: '2px 0' }} />
+        <Divider />
 
         <StatRow label="Tags used" value={stats.tagsUsed} />
         {stats.hub && (
@@ -193,6 +197,27 @@ export function StatisticsPanel({ data, visible, onFocusNode }) {
               {stats.hub.label} ({stats.hub.degree})
             </Text>
           </Group>
+        )}
+        {stats.bestInvestment.length > 0 && (
+          <>
+            <Divider />
+            <Text size="xs" fw={600} c="dimmed">Best investment</Text>
+            {stats.bestInvestment.map((item, index) => (
+              <Group key={item.id} justify="space-between" gap="xl" wrap="nowrap">
+                <Text size="xs" c="dimmed">#{index + 1}</Text>
+                <Text
+                  size="xs"
+                  fw={600}
+                  style={{ ...STAT_VALUE_STYLE, cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted' }}
+                  c="blue"
+                  onClick={() => onFocusNode?.(item.id)}
+                  title="Center on this node"
+                >
+                  {item.label}
+                </Text>
+              </Group>
+            ))}
+          </>
         )}
       </Stack>
     </Paper>

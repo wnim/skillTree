@@ -111,18 +111,33 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
     });
   }, [selectedIds]);
 
-  // Edge sync: fires when edge data or the selected edge changes.
+  // Edge sync: fires when edge data, selected edge, or node selection changes.
+  // Identity-preserving: only creates new edge objects for edges whose derived state changed.
   useEffect(() => {
-    if (!selectedEdgeId) {
-      setEdges(flowEdges);
-      return;
-    }
-    setEdges(flowEdges.map((e) =>
-      e.id === selectedEdgeId
-        ? { ...e, style: { ...e.style, stroke: 'orange' } }
-        : e
-    ));
-  }, [flowEdges, selectedEdgeId]);
+    setEdges((current) => {
+      const currentById = new Map(current.map((e) => [e.id, e]));
+      let anyChanged = current.length !== flowEdges.length;
+      const next = flowEdges.map((e) => {
+        const isEndpointSelected = selectedIds.has(e.source) || selectedIds.has(e.target);
+        const isSelectedEdge = e.id === selectedEdgeId;
+        const style = isSelectedEdge ? { ...e.style, stroke: 'orange' } : e.style;
+        const existing = currentById.get(e.id);
+        if (
+          existing &&
+          existing.data?.isEndpointSelected === isEndpointSelected &&
+          existing.style === style &&
+          existing.source === e.source &&
+          existing.target === e.target &&
+          existing.data?.sourceStyle === e.data?.sourceStyle
+        ) {
+          return existing;
+        }
+        anyChanged = true;
+        return { ...e, style, data: { ...e.data, isEndpointSelected } };
+      });
+      return anyChanged ? next : current;
+    });
+  }, [flowEdges, selectedEdgeId, selectedIds]);
 
   // Keep ref in sync so handleSelectionChange always sees fresh values
   useEffect(() => { selectedIdsRef.current = selectedIds; }, [selectedIds]);
@@ -404,7 +419,7 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
   useImperativeHandle(ref, () => ({ fitView, getViewportCenter, zoomIn, zoomOut, panBy, focusNode }), [fitView, getViewportCenter, zoomIn, zoomOut, panBy, focusNode]);
 
   return (
-    <HoverProvider selectedIds={selectedIds}>
+    <HoverProvider>
     <div ref={containerRef} style={{ position: 'relative', height: '100%' }}>
       <ReactFlowProvider>
         <ReactFlow

@@ -143,14 +143,14 @@ function App() {
               showGrid={ui.showGrid}
               snapMode={ui.snapMode}
             />
-            <KeyboardShortcutsHelp open={ui.shortcutsHelpOpen} onToggle={() => ui.setShortcutsHelpOpen(o => !o)} />
+            <KeyboardShortcutsHelp open={ui.shortcutsHelpOpen} onClose={() => ui.setShortcutsHelpOpen(false)} />
             <div style={{
-              position: 'absolute', top: 44, right: 12, zIndex: 9,
+              position: 'absolute', top: 8, right: 12, zIndex: 9,
               display: 'flex', gap: 8, alignItems: 'flex-start',
               transition: 'all 0.25s ease',
             }}>
               <TagLegend tagStyles={skillTree.data.tag_styles} visible={ui.showTagLegend} />
-              <StatisticsPanel data={skillTree.data} visible={ui.statisticsOpen} onFocusNode={(id) => canvasRef.current?.focusNode(id)} />
+              <StatisticsPanel data={skillTree.data} visible={ui.statisticsOpen} onFocusNode={(id) => { canvasRef.current?.focusNode(id); skillTree.setSelectedIds(new Set([id])); }} />
             </div>
           </div>
           <div style={{

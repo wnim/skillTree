@@ -1,6 +1,6 @@
 import { memo, useContext } from 'react';
 import { getBezierPath } from '@xyflow/react';
-import { HoverIdContext, SelectedIdsContext } from './HoverContext';
+import { HoverIdContext } from './HoverContext';
 
 const ARROW_H = 10;
 const ARROW_W = 7;
@@ -15,12 +15,12 @@ export const CustomBezierEdge = memo(function CustomBezierEdge({
   targetX, targetY,
   sourcePosition, targetPosition,
   style = {},
+  data,
   interactionWidth = 20,
 }) {
   const hoveredNodeId = useContext(HoverIdContext);
-  const selectedIds = useContext(SelectedIdsContext);
   const hovered = source === hoveredNodeId || target === hoveredNodeId
-    || selectedIds.has(source) || selectedIds.has(target);
+    || data?.isEndpointSelected;
   const [edgePath] = getBezierPath({
     sourceX,
     sourceY: sourceY - OVERLAP,          // start slightly inside source node (Y up = into node)

@@ -47,29 +47,30 @@ function ShortcutRow({ keys, description }) {
   );
 }
 
-export function KeyboardShortcutsHelp({ open, onToggle }) {
+export function KeyboardShortcutsHelp({ open, onClose }) {
   const panelRef = useRef(null);
 
   // Close on click outside or any keydown (except ?)
   useEffect(() => {
     if (!open) return;
     const handleKey = (e) => {
-      if (e.key !== '?') onToggle();
+      if (e.key !== '?') onClose();
     };
-    const handleClick = (e) => {
+    const handleMouseDown = (e) => {
       if (panelRef.current?.contains(e.target)) return;
-      onToggle();
+      if (e.target.closest('[data-shortcuts-trigger]')) return;
+      onClose();
     };
     window.addEventListener('keydown', handleKey, { capture: true });
-    window.addEventListener('mousedown', handleClick);
+    window.addEventListener('mousedown', handleMouseDown);
     return () => {
       window.removeEventListener('keydown', handleKey, { capture: true });
-      window.removeEventListener('mousedown', handleClick);
+      window.removeEventListener('mousedown', handleMouseDown);
     };
-  }, [open, onToggle]);
+  }, [open, onClose]);
 
   return (
-    <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 10, pointerEvents: 'none' }}>
+    <div style={{ position: 'absolute', top: 8, right: 12, zIndex: 10, pointerEvents: 'none' }}>
       {/* Shortcuts panel — pops from the top right */}
       <Paper
         ref={panelRef}
