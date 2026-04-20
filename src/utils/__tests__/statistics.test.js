@@ -6,7 +6,7 @@ const node = (id, score) => ({
   label: id.toUpperCase(),
   score,
   tags: [],
-  notes: '',
+
   position: { x: 0, y: 0 },
 });
 

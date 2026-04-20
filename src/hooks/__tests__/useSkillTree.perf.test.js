@@ -21,7 +21,6 @@ function generateLargeData() {
       label: `Trick ${i}`,
       score: isMastered ? 10 : Math.floor(Math.random() * 10),
       tags: [tags[i % tags.length]],
-      notes: '',
       position: { x: (i % 15) * 200, y: Math.floor(i / 15) * 100 },
     };
   });

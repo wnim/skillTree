@@ -225,7 +225,7 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
   const addNode = useCallback(
     (position) => {
       const id = `node_${Date.now()}`;
-      const newNode = { id, label: 'New Trick', score: null, tags: [], notes: '', position };
+      const newNode = { id, label: 'New Trick', score: null, tags: [], position };
       updateData((prev) => ({ nodes: [...prev.nodes, newNode] }));
       setSelectedIds(new Set([id]));
       setEditingId(id);

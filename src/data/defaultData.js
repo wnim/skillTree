@@ -14,7 +14,6 @@ export const defaultData = {
       label: 'Thumb Around',
       score: 8,
       tags: ['fundamental'],
-      notes: 'Clockwise only so far',
       position: { x: 100, y: 100 },
     },
     {
@@ -22,7 +21,6 @@ export const defaultData = {
       label: 'Thumb Spin 1.5',
       score: null,
       tags: ['combo'],
-      notes: '',
       position: { x: 400, y: 260 },
     },
   ],

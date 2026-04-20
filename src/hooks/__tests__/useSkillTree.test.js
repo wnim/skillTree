@@ -11,9 +11,9 @@ vi.mock('../../utils/gist', () => ({
 
 const SEED_DATA = {
   nodes: [
-    { id: 'n1', label: 'Node 1', score: 5, tags: ['fundamental'], notes: '', position: { x: 0, y: 0 } },
-    { id: 'n2', label: 'Node 2', score: null, tags: [], notes: '', position: { x: 200, y: 0 } },
-    { id: 'n3', label: 'Node 3', score: 10, tags: ['combo'], notes: '', position: { x: 400, y: 0 } },
+    { id: 'n1', label: 'Node 1', score: 5, tags: ['fundamental'], position: { x: 0, y: 0 } },
+    { id: 'n2', label: 'Node 2', score: null, tags: [], position: { x: 200, y: 0 } },
+    { id: 'n3', label: 'Node 3', score: 10, tags: ['combo'], position: { x: 400, y: 0 } },
   ],
   edges: [
     { id: 'e1', from: 'n1', to: 'n2', type: 'prerequisite' },
@@ -74,9 +74,9 @@ describe('useSkillTree — node CRUD', () => {
       result.current.setSelectedIds(new Set(['n1']));
     });
     act(() => {
-      result.current.updateNode('notes', 'Updated!');
+      result.current.updateNode('label', 'Updated!');
     });
-    expect(result.current.data.nodes.find((n) => n.id === 'n1').notes).toBe('Updated!');
+    expect(result.current.data.nodes.find((n) => n.id === 'n1').label).toBe('Updated!');
   });
 
   it('updateNode on tags auto-creates missing tag styles', () => {
