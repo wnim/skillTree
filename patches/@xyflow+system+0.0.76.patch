@@ -1,0 +1,130 @@
+diff --git a/node_modules/@xyflow/system/dist/esm/index.js b/node_modules/@xyflow/system/dist/esm/index.js
+index 69600fc..d766901 100644
+--- a/node_modules/@xyflow/system/dist/esm/index.js
++++ b/node_modules/@xyflow/system/dist/esm/index.js
+@@ -2931,34 +2931,32 @@ function XYPanZoom({ domNode, minZoom, maxZoom, translateExtent, viewport, onPan
+                 d3ZoomHandler,
+             });
+         d3Selection.on('wheel.zoom', wheelHandler, { passive: false });
+-        if (!userSelectionActive) {
+-            // pan zoom start
+-            const startHandler = createPanZoomStartHandler({
+-                zoomPanValues,
+-                onDraggingChange,
+-                onPanZoomStart,
+-            });
+-            d3ZoomInstance.on('start', startHandler);
+-            // pan zoom
+-            const panZoomHandler = createPanZoomHandler({
+-                zoomPanValues,
+-                panOnDrag,
+-                onPaneContextMenu: !!onPaneContextMenu,
+-                onPanZoom,
+-                onTransformChange,
+-            });
+-            d3ZoomInstance.on('zoom', panZoomHandler);
+-            // pan zoom end
+-            const panZoomEndHandler = createPanZoomEndHandler({
+-                zoomPanValues,
+-                panOnDrag,
+-                panOnScroll,
+-                onPaneContextMenu,
+-                onPanZoomEnd,
+-                onDraggingChange,
+-            });
+-            d3ZoomInstance.on('end', panZoomEndHandler);
+-        }
++        // pan zoom start (guard removed to allow panBy during selection drag)
++        const startHandler = createPanZoomStartHandler({
++            zoomPanValues,
++            onDraggingChange,
++            onPanZoomStart,
++        });
++        d3ZoomInstance.on('start', startHandler);
++        // pan zoom
++        const panZoomHandler = createPanZoomHandler({
++            zoomPanValues,
++            panOnDrag,
++            onPaneContextMenu: !!onPaneContextMenu,
++            onPanZoom,
++            onTransformChange,
++        });
++        d3ZoomInstance.on('zoom', panZoomHandler);
++        // pan zoom end
++        const panZoomEndHandler = createPanZoomEndHandler({
++            zoomPanValues,
++            panOnDrag,
++            panOnScroll,
++            onPaneContextMenu,
++            onPanZoomEnd,
++            onDraggingChange,
++        });
++        d3ZoomInstance.on('end', panZoomEndHandler);
+         const filter = createFilter({
+             zoomActivationKeyPressed,
+             panOnDrag,
+diff --git a/node_modules/@xyflow/system/dist/esm/index.mjs b/node_modules/@xyflow/system/dist/esm/index.mjs
+index 69600fc..d766901 100644
+--- a/node_modules/@xyflow/system/dist/esm/index.mjs
++++ b/node_modules/@xyflow/system/dist/esm/index.mjs
+@@ -2931,34 +2931,32 @@ function XYPanZoom({ domNode, minZoom, maxZoom, translateExtent, viewport, onPan
+                 d3ZoomHandler,
+             });
+         d3Selection.on('wheel.zoom', wheelHandler, { passive: false });
+-        if (!userSelectionActive) {
+-            // pan zoom start
+-            const startHandler = createPanZoomStartHandler({
+-                zoomPanValues,
+-                onDraggingChange,
+-                onPanZoomStart,
+-            });
+-            d3ZoomInstance.on('start', startHandler);
+-            // pan zoom
+-            const panZoomHandler = createPanZoomHandler({
+-                zoomPanValues,
+-                panOnDrag,
+-                onPaneContextMenu: !!onPaneContextMenu,
+-                onPanZoom,
+-                onTransformChange,
+-            });
+-            d3ZoomInstance.on('zoom', panZoomHandler);
+-            // pan zoom end
+-            const panZoomEndHandler = createPanZoomEndHandler({
+-                zoomPanValues,
+-                panOnDrag,
+-                panOnScroll,
+-                onPaneContextMenu,
+-                onPanZoomEnd,
+-                onDraggingChange,
+-            });
+-            d3ZoomInstance.on('end', panZoomEndHandler);
+-        }
++        // pan zoom start (guard removed to allow panBy during selection drag)
++        const startHandler = createPanZoomStartHandler({
++            zoomPanValues,
++            onDraggingChange,
++            onPanZoomStart,
++        });
++        d3ZoomInstance.on('start', startHandler);
++        // pan zoom
++        const panZoomHandler = createPanZoomHandler({
++            zoomPanValues,
++            panOnDrag,
++            onPaneContextMenu: !!onPaneContextMenu,
++            onPanZoom,
++            onTransformChange,
++        });
++        d3ZoomInstance.on('zoom', panZoomHandler);
++        // pan zoom end
++        const panZoomEndHandler = createPanZoomEndHandler({
++            zoomPanValues,
++            panOnDrag,
++            panOnScroll,
++            onPaneContextMenu,
++            onPanZoomEnd,
++            onDraggingChange,
++        });
++        d3ZoomInstance.on('end', panZoomEndHandler);
+         const filter = createFilter({
+             zoomActivationKeyPressed,
+             panOnDrag,

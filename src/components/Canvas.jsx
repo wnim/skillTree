@@ -18,6 +18,7 @@ import { StaggeredBackground } from './StaggeredBackground';
 import { loadViewport, saveViewport } from '../utils/viewport';
 import { snapToGrid } from '../utils/layout';
 import { scoreColor } from '../utils/score';
+import { SelectionAutoPan } from '../hooks/useSelectionAutoPan';
 
 export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTree, onOpenInspector, showGrid, snapMode }, ref) {
   const { addNode, deleteNode, addEdge, deleteEdge, updateNodePosition, updateNodePositions, updateNodeById,
@@ -422,6 +423,7 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
     <HoverProvider>
     <div ref={containerRef} style={{ position: 'relative', height: '100%' }}>
       <ReactFlowProvider>
+        <SelectionAutoPan containerRef={containerRef} />
         <ReactFlow
           nodes={nodes}
           edges={edges}
