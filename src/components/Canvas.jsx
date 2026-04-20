@@ -37,7 +37,13 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
   const [minimapOpen, setMinimapOpen] = useState(true);
   const [minimapToggled, setMinimapToggled] = useState(false);
   const minimapRef = useRef(null);
-  const isShiftHeld = useRef(false);
+  // Tracks whether a multi-select modifier key is held. Updated from pointer event
+  // properties (immune to missed keyup events, unlike keydown/keyup tracking).
+  const multiSelectActive = useRef(false);
+  // Snapshot of selectedIds captured at rectangle-selection start. Used by Guards A/B
+  // to distinguish "previously selected" from "selected during this drag".
+  const priorSelectionRef = useRef(new Set());
+  const selectionDragActive = useRef(false);
   const snapModeRef = useRef(snapMode);
   useEffect(() => { snapModeRef.current = snapMode; }, [snapMode]);
   const nodesRef = useRef([]);
@@ -143,9 +149,9 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
   // Keep ref in sync so handleSelectionChange always sees fresh values
   useEffect(() => { selectedIdsRef.current = selectedIds; }, [selectedIds]);
 
+  // Space bar pan-mode toggle
   useEffect(() => {
     const onKeyDown = (e) => {
-      if (e.key === 'Shift' || e.key === 'Control') { isShiftHeld.current = true; return; }
       if (e.code !== 'Space' || e.repeat) return;
       const tag = document.activeElement?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
@@ -153,7 +159,6 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
       setIsPanMode(true);
     };
     const onKeyUp = (e) => {
-      if (e.key === 'Shift' || e.key === 'Control') { isShiftHeld.current = false; return; }
       if (e.code !== 'Space') return;
       setIsPanMode(false);
     };
@@ -162,6 +167,30 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
     return () => {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
+    };
+  }, []);
+
+  // Track multi-select modifier state from pointer events (capture phase).
+  // Pointer events always report correct modifier key state, even if keyup was missed
+  // (e.g. Ctrl+Tab switching browser tabs, context menus while Ctrl held).
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const updateModifiers = (e) => {
+      multiSelectActive.current = e.shiftKey || e.ctrlKey || e.metaKey;
+    };
+    const clearModifiers = () => { multiSelectActive.current = false; };
+    container.addEventListener('pointerdown', updateModifiers, true);
+    container.addEventListener('pointermove', updateModifiers, true);
+    container.addEventListener('pointerup', updateModifiers, true);
+    window.addEventListener('blur', clearModifiers);
+    document.addEventListener('visibilitychange', clearModifiers);
+    return () => {
+      container.removeEventListener('pointerdown', updateModifiers, true);
+      container.removeEventListener('pointermove', updateModifiers, true);
+      container.removeEventListener('pointerup', updateModifiers, true);
+      window.removeEventListener('blur', clearModifiers);
+      document.removeEventListener('visibilitychange', clearModifiers);
     };
   }, []);
 
@@ -233,20 +262,32 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
     clearSelectedEdge();
   }, [setSelectedIds, setEditingId, clearSelectedEdge]);
 
+  const handleSelectionStart = useCallback(() => {
+    selectionDragActive.current = true;
+    priorSelectionRef.current = selectedIdsRef.current;
+  }, []);
+
+  const handleSelectionEnd = useCallback(() => {
+    selectionDragActive.current = false;
+  }, []);
+
   const handleSelectionChange = useCallback(
     ({ nodes: selectedNodes }) => {
       const incomingIds = new Set(selectedNodes.map((n) => n.id));
-      const currentAll = selectedIdsRef.current;
 
       let nextAll;
-      if (isShiftHeld.current) {
-        if (incomingIds.size === 0) return; // ignore empty during shift-drag
-        nextAll = new Set([...currentAll, ...incomingIds]);
+      if (multiSelectActive.current && selectionDragActive.current) {
+        // Additive mode: union the pre-drag snapshot with current rectangle contents.
+        // When the rectangle shrinks to zero nodes, nextAll = priorSelection (correct).
+        const prior = priorSelectionRef.current;
+        nextAll = new Set(prior);
+        for (const id of incomingIds) nextAll.add(id);
       } else {
         nextAll = incomingIds;
       }
 
       // Content equality check — avoid triggering re-renders for identical selections
+      const currentAll = selectedIdsRef.current;
       if (nextAll.size === currentAll.size && [...nextAll].every((id) => currentAll.has(id))) return;
 
       setSelectedIds(nextAll);
@@ -287,13 +328,15 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
 
   const handleNodesChange = useCallback(
     (changes) => {
-      // When Shift is held, prevent ReactFlow from visually deselecting already-selected nodes
-      // as a new drag-selection starts. Without this, the select:false events emitted at drag
-      // start would strip the visual selection before handleSelectionChange can union them back.
-      if (isShiftHeld.current) {
-        const currentAll = selectedIdsRef.current;
+      // During additive (modifier+drag) selection, prevent ReactFlow from visually
+      // deselecting nodes that were selected before this drag started. Without this,
+      // the select:false events emitted at drag start would strip the visual selection
+      // before handleSelectionChange can union them back. Only protects the pre-drag
+      // snapshot — nodes that entered the rectangle during this drag can be deselected.
+      if (multiSelectActive.current && selectionDragActive.current) {
+        const prior = priorSelectionRef.current;
         changes = changes.map((c) =>
-          c.type === 'select' && !c.selected && currentAll.has(c.id)
+          c.type === 'select' && !c.selected && prior.has(c.id)
             ? { ...c, selected: true }
             : c,
         );
@@ -438,6 +481,8 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
           onNodesChange={handleNodesChange}
           onEdgesChange={onEdgesChange}
           onSelectionChange={handleSelectionChange}
+          onSelectionStart={handleSelectionStart}
+          onSelectionEnd={handleSelectionEnd}
           onEdgeClick={handleEdgeClick}
           onNodeContextMenu={handleNodeContextMenu}
           onEdgeContextMenu={handleEdgeContextMenu}
