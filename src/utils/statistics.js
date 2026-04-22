@@ -1,16 +1,16 @@
 /**
  * Compute basic node statistics: mastered, inProgress, notAttempted counts.
  *
- * A node is "not attempted" when its score is null or 0 (no progress).
- * A node is "mastered" when score === 10.
- * Everything else is "in progress" (score 1–9).
+ * A node is "not attempted" when its proficiency is null or 0 (no progress).
+ * A node is "mastered" when proficiency === 10.
+ * Everything else is "in progress" (proficiency 1–9).
  */
 export function computeBasicStats(nodes) {
   let mastered = 0;
   let notAttempted = 0;
   for (const n of nodes) {
-    if (n.score === 10) mastered++;
-    else if (n.score == null || n.score === 0) notAttempted++;
+    if (n.proficiency === 10) mastered++;
+    else if (n.proficiency == null || n.proficiency === 0) notAttempted++;
   }
   const inProgress = nodes.length - mastered - notAttempted;
   return { mastered, inProgress, notAttempted };
@@ -20,10 +20,10 @@ export function computeBasicStats(nodes) {
  * Practice Investment Value (PIV) — ranks partially-learned nodes by how
  * much downstream potential they unlock via prerequisite edges.
  *
- * PIV(n) = (score(n) / 10) × Σ  potential(d) / depth(n, d)
+ * PIV(n) = (proficiency(n) / 10) × Σ  potential(d) / depth(n, d)
  *                              d∈descendants
  *
- * Only prerequisite edges are traversed. Nodes with score null or 10
+ * Only prerequisite edges are traversed. Nodes with proficiency null or 10
  * are excluded from ranking.
  */
 
@@ -44,9 +44,9 @@ export function computeInvestmentValue(nodes, edges) {
   const results = [];
 
   for (const node of nodes) {
-    const { score } = node;
-    // Only nodes with score 1–9 qualify
-    if (score == null || score < 1 || score > 9) continue;
+    const { proficiency } = node;
+    // Only nodes with proficiency 1–9 qualify
+    if (proficiency == null || proficiency < 1 || proficiency > 9) continue;
 
     // BFS to collect all descendants with shortest depths
     const visited = new Set([node.id]);
@@ -63,7 +63,7 @@ export function computeInvestmentValue(nodes, edges) {
     while (idx < queue.length) {
       const [id, depth] = queue[idx++];
       const desc = nodeMap.get(id);
-      const potential = desc.score == null ? 10 : 10 - desc.score;
+      const potential = desc.proficiency == null ? 10 : 10 - desc.proficiency;
       sum += potential / depth;
 
       for (const child of children.get(id) ?? []) {
@@ -76,7 +76,7 @@ export function computeInvestmentValue(nodes, edges) {
 
     if (sum === 0) continue;
 
-    const piv = (score / 10) * sum;
+    const piv = (proficiency / 10) * sum;
     results.push({ id: node.id, label: node.label, piv });
   }
 

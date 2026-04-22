@@ -17,7 +17,7 @@ import { ContextMenu } from './ContextMenu';
 import { StaggeredBackground } from './StaggeredBackground';
 import { loadViewport, saveViewport } from '../utils/viewport';
 import { snapToGrid } from '../utils/layout';
-import { scoreColor } from '../utils/score';
+import { proficiencyColor } from '../utils/score';
 import { SelectionAutoPan } from '../hooks/useSelectionAutoPan';
 
 export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTree, onOpenInspector, showGrid, snapMode }, ref) {
@@ -505,7 +505,7 @@ export const Canvas = forwardRef(function Canvas({ flowNodes, flowEdges, skillTr
           <Controls />
           <div ref={minimapRef} onClick={handleMinimapClick}>
           <MiniMap
-            nodeColor={(node) => scoreColor(node.data?.score ?? null)}
+            nodeColor={(node) => proficiencyColor(node.data?.proficiency ?? null)}
             nodeStrokeWidth={3}
             pannable
             zoomable

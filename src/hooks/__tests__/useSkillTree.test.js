@@ -345,7 +345,7 @@ describe('useSkillTree — derived state', () => {
     expect(fe.type).toBe('customBezier');
   });
 
-  it('filters out score=10 nodes when hideMaxScore is true', () => {
+  it('filters out proficiency=10 nodes when hideMaxScore is true', () => {
     const { result } = seedAndRender(true);
     expect(result.current.flowNodes.find((n) => n.id === 'n3')).toBeUndefined();
     expect(result.current.flowNodes).toHaveLength(2);

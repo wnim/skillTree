@@ -3,14 +3,29 @@ import { defaultData, DEFAULT_EDGE_TYPE, DATA_KEY, SAVE_PENDING_KEY } from '../d
 import { tidyLayout } from '../utils/layout';
 import { fetchGistData, saveGistData, saveGistDataKeepalive } from '../utils/gist';
 
+function migrateData(data) {
+  // Migrate old "score" field to "proficiency"
+  const migrated = { ...data };
+  if (migrated.nodes) {
+    migrated.nodes = migrated.nodes.map(node => {
+      if (node.score !== undefined && node.proficiency === undefined) {
+        const { score, ...rest } = node;
+        return { ...rest, proficiency: score };
+      }
+      return node;
+    });
+  }
+  return migrated;
+}
+
 function loadData() {
   try {
     const saved = localStorage.getItem(DATA_KEY);
-    if (saved) return JSON.parse(saved);
+    if (saved) return migrateData(JSON.parse(saved));
   } catch {
     // corrupted storage — fall back to defaults
   }
-  return defaultData;
+  return migrateData(defaultData);
 }
 
 // Stable sentinels so initial state never leaks into comparisons
@@ -57,8 +72,9 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
       fetchGistData(gistConfig.gistId, gistConfig.token)
         .then(({ data: gistData }) => {
           if (ignore) return;
-          lastSyncedDataRef.current = gistData;
-          setData(gistData);
+          const migratedData = migrateData(gistData);
+          lastSyncedDataRef.current = migratedData;
+          setData(migratedData);
           setSyncStatus('idle');
         })
         .catch(() => { if (!ignore) setSyncStatus('error'); });
@@ -153,7 +169,7 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
   const hiddenNodeIds = useMemo(
     () =>
       hideMaxScore
-        ? new Set(data.nodes.filter((n) => n.score === 10).map((n) => n.id))
+        ? new Set(data.nodes.filter((n) => n.proficiency === 10).map((n) => n.id))
         : EMPTY_SET,
     [data.nodes, hideMaxScore],
   );
@@ -496,7 +512,7 @@ export function useSkillTree(gistConfig = null, hideMaxScore = false) {
   // --- Import / Export ---
 
   const importData = useCallback((parsed) => {
-    setData(parsed);
+    setData(migrateData(parsed));
   }, []);
 
   const exportData = useCallback(() => {

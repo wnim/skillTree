@@ -36,8 +36,8 @@ body {
 }
 
 .skill-node__label {
-  font-size: var(--mantine-font-size-xs);
-  font-weight: 600;
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 700;
   color: var(--mantine-color-gray-1);
   line-height: 1.2;
 }

@@ -1,6 +1,6 @@
 import { memo, useContext, useState } from 'react';
 import { Handle } from '@xyflow/react';
-import { scoreColor } from '../utils/score';
+import { proficiencyColor } from '../utils/score';
 import { HoverSetContext } from './HoverContext';
 
 
@@ -14,10 +14,10 @@ function buildGradientBorder(tagColors) {
 }
 
 export const SkillNode = memo(function SkillNode({ id, data, selected }) {
-  const { score, label, isEditing, tagColor, tagColors } = data;
+  const { proficiency, label, isEditing, tagColor, tagColors } = data;
   const setHoveredNodeId = useContext(HoverSetContext);
   const [hovered, setHovered] = useState(false);
-  const percent = score == null ? 0 : (score / 10) * 100;
+  const percent = proficiency == null ? 0 : (proficiency / 10) * 100;
 
   const multiTag = Array.isArray(tagColors) && tagColors.length >= 2;
   const gradientBorder = multiTag ? buildGradientBorder(tagColors) : null;
@@ -64,7 +64,7 @@ export const SkillNode = memo(function SkillNode({ id, data, selected }) {
             className="skill-node__bar"
             style={{
               width: `${percent}%`,
-              background: score == null ? 'var(--mantine-color-dark-5)' : scoreColor(score),
+              background: proficiency == null ? 'var(--mantine-color-dark-5)' : proficiencyColor(proficiency),
             }}
           />
         </div>

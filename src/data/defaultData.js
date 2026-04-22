@@ -12,14 +12,14 @@ export const defaultData = {
     {
       id: 'thumb_around',
       label: 'Thumb Around',
-      score: 8,
+      proficiency: 8,
       tags: ['fundamental'],
       position: { x: 100, y: 100 },
     },
     {
       id: 'thumb_spin_1_5',
       label: 'Thumb Spin 1.5',
-      score: null,
+      proficiency: null,
       tags: ['combo'],
       position: { x: 400, y: 260 },
     },

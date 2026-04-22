@@ -13,7 +13,7 @@ const ACTIONS = [
   { key: 'showGrid',      Icon: LayoutGrid,  label: 'Show grid',                        toggle: true  },
   { key: 'snap',          Icon: Magnet,      label: 'Snap to grid',                     toggle: true  },
   { key: 'tidy',          Icon: Wand2,       label: 'Auto-layout (tidy)',               toggle: false },
-  { key: 'hideMastered',  Icon: EyeOff,      label: 'Hide mastered (max score) nodes',  toggle: true  },
+  { key: 'hideMastered',  Icon: EyeOff,      label: 'Hide mastered (max proficiency) nodes',  toggle: true  },
   { key: 'sep1',          divider: true                                                              },
   { key: 'editTags',      Icon: Tag,         label: 'Edit tags for selected nodes',     toggle: false },
 ];

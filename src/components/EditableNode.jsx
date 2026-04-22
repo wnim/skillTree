@@ -3,11 +3,11 @@ import { Handle, Position } from '@xyflow/react';
 import { Paper, TextInput, Slider, Text } from '@mantine/core';
 
 export function EditableNode({ data }) {
-  const { id, label, score, onUpdate, onClose } = data;
+  const { id, label, proficiency, onUpdate, onClose } = data;
 
   // Local state keeps the UI smooth; global state is only updated on commit
   const [localLabel, setLocalLabel] = useState(label);
-  const [localScore, setLocalScore] = useState(score ?? 0);
+  const [localProficiency, setLocalProficiency] = useState(proficiency ?? 0);
 
   const nameRef = useRef(null);
 
@@ -39,9 +39,9 @@ export function EditableNode({ data }) {
   }, [id, localLabel, onUpdate]);
 
   // Commit to global state only when the drag ends
-  const handleScoreChangeEnd = useCallback(
+  const handleProficiencyChangeEnd = useCallback(
     (val) => {
-      onUpdate(id, 'score', val);
+      onUpdate(id, 'proficiency', val);
     },
     [id, onUpdate],
   );
@@ -66,7 +66,7 @@ export function EditableNode({ data }) {
 
       <TextInput
         ref={nameRef}
-        size="xs"
+        size="sm"
         placeholder="Name"
         value={localLabel}
         onChange={handleLabelChange}
@@ -74,14 +74,14 @@ export function EditableNode({ data }) {
         styles={{ input: { fontWeight: 600 } }}
       />
 
-      <Text size="xs" c="dimmed" mb={2}>Score</Text>
+      <Text size="sm" c="dimmed" mb={2}>Proficiency</Text>
       <Slider
         min={0}
         max={10}
         step={1}
-        value={localScore}
-        onChange={setLocalScore}
-        onChangeEnd={handleScoreChangeEnd}
+        value={localProficiency}
+        onChange={setLocalProficiency}
+        onChangeEnd={handleProficiencyChangeEnd}
         onPointerDown={(e) => e.stopPropagation()}
         label={(val) => val}
         size="md"

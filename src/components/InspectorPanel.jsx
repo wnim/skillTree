@@ -20,8 +20,8 @@ export function InspectorPanel({ selectedNode, edges }) {
       </div>
 
       <div>
-        <Text size="sm" fw={500} mb={2}>Score</Text>
-        <Text>{selectedNode.score ?? '—'}</Text>
+        <Text size="sm" fw={500} mb={2}>Proficiency</Text>
+        <Text>{selectedNode.proficiency ?? '—'}</Text>
       </div>
 
       <div>

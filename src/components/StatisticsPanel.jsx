@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Divider, Paper, Progress, Text, Group, Stack } from '@mantine/core';
-import { scoreColor } from '../utils/score';
+import { proficiencyColor } from '../utils/score';
 import { computeBasicStats, computeInvestmentValue } from '../utils/statistics';
 
 const STAT_VALUE_STYLE = { fontVariantNumeric: 'tabular-nums' };
@@ -103,11 +103,11 @@ function ScoreBar({ scores }) {
   }
   const total = scores.length || 1;
   const sections = [
-    { value: (buckets[0] / total) * 100, color: scoreColor(0) },
-    { value: (buckets[1] / total) * 100, color: scoreColor(2) },
-    { value: (buckets[2] / total) * 100, color: scoreColor(5) },
-    { value: (buckets[3] / total) * 100, color: scoreColor(8) },
-    { value: (buckets[4] / total) * 100, color: scoreColor(10) },
+    { value: (buckets[0] / total) * 100, color: proficiencyColor(0) },
+    { value: (buckets[1] / total) * 100, color: proficiencyColor(2) },
+    { value: (buckets[2] / total) * 100, color: proficiencyColor(5) },
+    { value: (buckets[3] / total) * 100, color: proficiencyColor(8) },
+    { value: (buckets[4] / total) * 100, color: proficiencyColor(10) },
   ];
   return (
     <Progress.Root size="sm" radius="xl">
@@ -121,8 +121,8 @@ function ScoreBar({ scores }) {
 export function StatisticsPanel({ data, visible, onFocusNode }) {
   const stats = useMemo(() => {
     const { nodes, edges } = data;
-    const scoredNodes = nodes.filter((n) => n.score != null);
-    const scores = scoredNodes.map((n) => n.score);
+    const scoredNodes = nodes.filter((n) => n.proficiency != null);
+    const scores = scoredNodes.map((n) => n.proficiency);
     const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : null;
     const { mastered, inProgress, notAttempted } = computeBasicStats(nodes);
     const completion = nodes.length > 0 ? (mastered / nodes.length) * 100 : 0;
@@ -160,7 +160,7 @@ export function StatisticsPanel({ data, visible, onFocusNode }) {
         <StatRow label="In progress" value={stats.inProgress} color="blue" />
         <StatRow label="Not attempted" value={stats.notAttempted} color="dimmed" />
         <StatRow
-          label="Avg score"
+          label="Avg proficiency"
           value={stats.avgScore != null ? stats.avgScore.toFixed(1) : '—'}
         />
         <StatRow
@@ -171,7 +171,7 @@ export function StatisticsPanel({ data, visible, onFocusNode }) {
 
         {stats.scores.length > 0 && (
           <Stack gap={2}>
-            <Text size="xs" c="dimmed">Score distribution</Text>
+            <Text size="xs" c="dimmed">Proficiency distribution</Text>
             <ScoreBar scores={stats.scores} />
             <Group justify="space-between" gap={0}>
               <Text size="xs" c="dimmed" lh={1}>0</Text>

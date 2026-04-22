@@ -1,5 +1,5 @@
-export function scoreColor(score) {
-  if (score == null) return '#999';
-  const hue = Math.round((score / 10) * 120);
+export function proficiencyColor(proficiency) {
+  if (proficiency == null) return '#999';
+  const hue = Math.round((proficiency / 10) * 120);
   return `hsl(${hue}, 90%, 55%)`;
 }

@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { computeBasicStats, computeInvestmentValue } from '../statistics';
 
-const node = (id, score) => ({
+const node = (id, proficiency) => ({
   id,
   label: id.toUpperCase(),
-  score,
+  proficiency,
   tags: [],
 
   position: { x: 0, y: 0 },
@@ -13,19 +13,19 @@ const node = (id, score) => ({
 const prereq = (id, from, to) => ({ id, from, to, type: 'prerequisite' });
 
 describe('computeBasicStats', () => {
-  it('counts score=0 nodes as not attempted', () => {
+  it('counts proficiency=0 nodes as not attempted', () => {
     const nodes = [node('a', 0), node('b', null), node('c', 5), node('d', 10)];
     const stats = computeBasicStats(nodes);
-    expect(stats.notAttempted).toBe(2); // score 0 and null
-    expect(stats.inProgress).toBe(1);  // score 5
-    expect(stats.mastered).toBe(1);    // score 10
+    expect(stats.notAttempted).toBe(2); // proficiency 0 and null
+    expect(stats.inProgress).toBe(1);  // proficiency 5
+    expect(stats.mastered).toBe(1);    // proficiency 10
   });
 
   it('returns zeros for empty input', () => {
     expect(computeBasicStats([])).toEqual({ mastered: 0, inProgress: 0, notAttempted: 0 });
   });
 
-  it('treats all score values 1–9 as in progress', () => {
+  it('treats all proficiency values 1–9 as in progress', () => {
     const nodes = [node('a', 1), node('b', 9)];
     const stats = computeBasicStats(nodes);
     expect(stats.inProgress).toBe(2);
@@ -39,13 +39,13 @@ describe('computeInvestmentValue', () => {
     expect(computeInvestmentValue([], [])).toEqual([]);
   });
 
-  it('returns empty when all nodes are unattempted (score null)', () => {
+  it('returns empty when all nodes are unattempted (proficiency null)', () => {
     const nodes = [node('a', null), node('b', null)];
     const edges = [prereq('e1', 'a', 'b')];
     expect(computeInvestmentValue(nodes, edges)).toEqual([]);
   });
 
-  it('returns empty when all nodes are mastered (score 10)', () => {
+  it('returns empty when all nodes are mastered (proficiency 10)', () => {
     const nodes = [node('a', 10), node('b', 10)];
     const edges = [prereq('e1', 'a', 'b')];
     expect(computeInvestmentValue(nodes, edges)).toEqual([]);
@@ -75,7 +75,7 @@ describe('computeInvestmentValue', () => {
 
   it('returns at most top 3 nodes ranked by PIV descending', () => {
     // Build 4 eligible nodes each with one unattempted child
-    // Higher score → higher readiness → higher PIV (same downstream)
+    // Higher proficiency → higher readiness → higher PIV (same downstream)
     const nodes = [
       node('a', 9), node('a_child', null),
       node('b', 7), node('b_child', null),
@@ -99,10 +99,10 @@ describe('computeInvestmentValue', () => {
     expect(result[2].piv).toBeCloseTo(5);
   });
 
-  it('accounts for partial-score descendant potential', () => {
+  it('accounts for partial-proficiency descendant potential', () => {
     // A(8) → B(7): potential(B)=3, PIV(A) = 0.8 * (3/1) = 2.4
     // A(8) → B(7): potential(B)=3, PIV(A) = 0.8 * (3/1) = 2.4
-    // B(7) qualifies (score 1-9) but has no descendants → PIV=0 → excluded
+    // B(7) qualifies (proficiency 1-9) but has no descendants → PIV=0 → excluded
     const nodes = [node('a', 8), node('b', 7)];
     const edges = [prereq('e1', 'a', 'b')];
     const result = computeInvestmentValue(nodes, edges);
